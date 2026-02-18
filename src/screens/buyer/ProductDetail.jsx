@@ -21,6 +21,7 @@ import { getProductById, getSellerInfo } from "../../api/productApi";
 import { sendMessage } from "../../api/chatApi";
 import { BASE_URL } from "../../api/api";
 import AddReviewModal from "../../components/AddReviewModal";
+import { getProductReviews, getShopReviews } from "../../api/reviewApi";
 import styles from "./styles/ProductDetail.style";
 
 const { height: screenHeight } = Dimensions.get('window');
@@ -103,14 +104,15 @@ export default function ProductDetail({ route, navigation }) {
     };
   }, []);
   
-  // Real reviews - TODO: Fetch from API in future
-  const reviews = product?.reviews || [];
-  const hasReviews = reviews.length > 0;
+  // Reviews state
+  const [productReviews, setProductReviews] = useState([]);
+  const [shopReviewSample, setShopReviewSample] = useState(null);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [reviewStats, setReviewStats] = useState(null);
   
-  // Calculate average rating if reviews exist
-  const averageRating = hasReviews 
-    ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length 
-    : 0;
+  // Calculate average rating and reviews count
+  const hasReviews = productReviews.length > 0;
+  const averageRating = reviewStats?.average_rating || 0;
 
   // Load full product details and seller information
   useEffect(() => {
@@ -168,9 +170,16 @@ export default function ProductDetail({ route, navigation }) {
         const response = await getSellerInfo(sellerId);
         
         if (response.success && response.seller) {
+          // Debug: Log complete seller response
+          console.log('🏪 Complete seller response:', JSON.stringify(response.seller, null, 2));
+          console.log('🏪 Shop name from API:', response.seller.shopName);
+          console.log('🏪 Business name from API:', response.seller.sellerProfile?.businessName);
+          console.log('🏪 Full name from API:', response.seller.name);
+          
           const sellerInfo = {
             id: response.seller.id,
-            name: response.seller.shopName || response.seller.sellerProfile?.businessName || response.seller.name,
+            // Priority: shopName > businessName > full name > "Shop"
+            name: response.seller.shopName || response.seller.sellerProfile?.businessName || response.seller.name || 'Shop',
             rating: response.seller.rating || response.seller.sellerProfile?.rating || 0,
             reviews: response.seller.reviews || 0,
             // Use shop logo first, then profile image, consistent with Home.jsx
@@ -183,7 +192,8 @@ export default function ProductDetail({ route, navigation }) {
             isNewSeller: response.seller.isNewSeller || response.seller.rating === 0
           };
           
-          console.log('🏪 Real seller info loaded:', sellerInfo);
+          console.log('🏪 Seller info created with name:', sellerInfo.name);
+          console.log('🏪 Complete seller info object:', JSON.stringify(sellerInfo, null, 2));
           setProductShopInfo(sellerInfo);
         } else {
           throw new Error('Invalid seller response');
@@ -198,12 +208,21 @@ export default function ProductDetail({ route, navigation }) {
         }
         
         // Set basic seller info even if API fails
+        // Try to use product data as fallback
+        const fallbackName = product?.sellerProfile?.businessName || 
+                            product?.shopName || 
+                            product?.sellerName || 
+                            `Store ${sellerId?.slice(-4) || 'Unknown'}`;
+        
+        console.log('🔄 Using fallback seller info with name:', fallbackName);
+        
         setProductShopInfo({
           id: sellerId,
-          name: `Store ${sellerId?.slice(-4) || 'Unknown'}`,
+          name: fallbackName,
           rating: 0,
           reviews: 0,
-          profileImage: null,
+          profileImage: product?.sellerProfile?.shopLogo || product?.sellerProfile?.profileImage || null,
+          sellerProfile: product?.sellerProfile || null,
           isOnline: false,
           joinedDate: new Date().toISOString(),
           totalProducts: 0,
@@ -215,6 +234,45 @@ export default function ProductDetail({ route, navigation }) {
     loadProductDetails();
   }, [product?.id]);
 
+  // Load product reviews
+  useEffect(() => {
+    const loadReviews = async () => {
+      if (!product?.id) return;
+      
+      try {
+        setLoadingReviews(true);
+        console.log('📖 Loading reviews for product:', product.id);
+        
+        // Fetch product reviews
+        const reviewsResponse = await getProductReviews(product.id, 10, 0, 'recent');
+        
+        if (reviewsResponse.success) {
+          setProductReviews(reviewsResponse.reviews || []);
+          setReviewStats(reviewsResponse.stats);
+          console.log('✅ Product reviews loaded:', reviewsResponse.reviews?.length || 0);
+        }
+        
+        // Fetch ONE shop review if seller ID is available
+        const sellerId = product?.sellerId || product?.seller_id;
+        if (sellerId) {
+          console.log('📖 Loading shop review sample for seller:', sellerId);
+          const shopReviewsResponse = await getShopReviews(sellerId, 1, 0, 'recent');
+          
+          if (shopReviewsResponse.success && shopReviewsResponse.reviews?.length > 0) {
+            setShopReviewSample(shopReviewsResponse.reviews[0]);
+            console.log('✅ Shop review sample loaded');
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error loading reviews:', error);
+      } finally {
+        setLoadingReviews(false);
+      }
+    };
+    
+    loadReviews();
+  }, [product?.id]);
+
   useEffect(() => {
     if (product) {
       // Check if product is in likes
@@ -224,8 +282,9 @@ export default function ProductDetail({ route, navigation }) {
       // Only set derived shop info if we don't have seller info from API yet
       // This prevents overriding the correct shop logo loaded from getSellerInfo API
       setProductShopInfo(prevShopInfo => {
-        // If we already have shop info from API (with correct profileImage), don't override it
-        if (prevShopInfo && prevShopInfo.profileImage) {
+        // If we already have shop info from API (loaded from loadSellerInfo), don't override it
+        // Check if it has the API-loaded data by looking for joinedDate or isNewSeller (API-specific fields)
+        if (prevShopInfo && (prevShopInfo.joinedDate || prevShopInfo.isNewSeller !== undefined)) {
           console.log('📝 Keeping existing shop info from API:', prevShopInfo);
           return prevShopInfo;
         }
@@ -412,8 +471,12 @@ export default function ProductDetail({ route, navigation }) {
   };
   
   const handleChatWithShop = async () => {
-    if (!productShopInfo) {
-      Alert.alert('Error', 'Shop information not available');
+    // Get seller ID with multiple fallbacks
+    const sellerId = productShopInfo?.id || product?.sellerId || product?.seller_id;
+    
+    if (!sellerId) {
+      Alert.alert('Error', 'Unable to contact seller. Seller information is not available.');
+      console.error('❌ No seller ID found:', { productShopInfo, product });
       return;
     }
     
@@ -442,30 +505,30 @@ export default function ProductDetail({ route, navigation }) {
       
       console.log('🛍️ Final product data being sent:', productData);
       
-      console.log('💬 Starting chat with seller:', productShopInfo.id, 'for product:', product.name);
+      console.log('💬 Starting chat with seller:', sellerId, 'for product:', product.name);
       console.log('🛍️ Product data:', productData);
       console.log('🖼️ Image in product data:', productData.image);
       
       // Create chat with shop (this will send the initial message)
-      const chatId = `chat_${productShopInfo.id}`;
+      const chatId = `chat_${sellerId}`;
       
       // Add to conversations using ChatContext (this handles the initial message)
-      await createChatWithShop(productShopInfo.id, initialMessage, productData);
+      await createChatWithShop(sellerId, initialMessage, productData);
       
       // Navigate to the chat screen with proper shop info and product data
       navigation.navigate("Chat", { 
         chatData: { 
           id: chatId,
-          partnerId: productShopInfo.id,
+          partnerId: sellerId,
           shop: {
-            id: productShopInfo.id,
-            name: productShopInfo.name || productShopInfo.shopName || 'Shop',
-            avatar: productShopInfo.avatar || productShopInfo.shopLogo ? 
+            id: sellerId,
+            name: productShopInfo?.name || productShopInfo?.shopName || product?.sellerName || 'Shop',
+            avatar: productShopInfo?.avatar || productShopInfo?.shopLogo ? 
               { uri: productShopInfo.avatar || productShopInfo.shopLogo } : null,
-            isOnline: productShopInfo.isOnline || false
+            isOnline: productShopInfo?.isOnline || false
           },
-          sellerName: productShopInfo.name || productShopInfo.shopName || 'Shop',
-          isOnline: productShopInfo.isOnline || false,
+          sellerName: productShopInfo?.name || productShopInfo?.shopName || product?.sellerName || 'Shop',
+          isOnline: productShopInfo?.isOnline || false,
           productData: productData // Pass product data to chat screen
         } 
       });
@@ -539,6 +602,9 @@ export default function ProductDetail({ route, navigation }) {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      
+      {/* Fixed Safe Area Overlay - Prevents content from going under notch */}
+      <View style={styles.safeAreaOverlay} />
       
       {/* Main Scrollable Container */}
       <ScrollView 
@@ -780,7 +846,7 @@ export default function ProductDetail({ route, navigation }) {
 
                   <View style={styles.shopHeaderInfo}>
                     <Text style={styles.modernShopName}>
-                      {productShopInfo?.name || productShopInfo?.sellerProfile?.businessName || 'Lighting Store'}
+                      {productShopInfo?.name || productShopInfo?.sellerProfile?.businessName || product?.shopName || 'Shop'}
                     </Text>
                     <View style={styles.shopStatusRow}>
                       <Icon
@@ -874,7 +940,7 @@ export default function ProductDetail({ route, navigation }) {
                         color={activeTab === tab ? '#FFFFFF' : '#666666'}
                       />
                       <Text style={[styles.modernTabText, activeTab === tab && styles.modernActiveTabText]}>
-                        {tab === 'Reviews' ? `Reviews ${hasReviews ? `(${reviews.length})` : '(0)'}` : tab}
+                        {tab === 'Reviews' ? `Reviews (${productReviews.length})` : tab}
                       </Text>
                     </View>
                   </TouchableOpacity>
@@ -885,20 +951,37 @@ export default function ProductDetail({ route, navigation }) {
               <View style={styles.modernTabContent}>
                 {activeTab === 'Description' && (
                   <View style={styles.modernDescriptionSection}>
-                    <Text style={styles.modernDescriptionText}>
-                      {product?.description || 'This premium lighting fixture combines modern design with exceptional functionality. Crafted with high-quality materials and attention to detail, it provides excellent illumination while serving as a stunning centerpiece for any space.'}
-                    </Text>
+                    {/* Description Header */}
+                    <View style={styles.descriptionHeaderBox}>
+                      <View style={styles.descriptionIconContainer}>
+                        <Icon name="information-circle" size={24} color="#FF8B47" />
+                      </View>
+                      <Text style={styles.descriptionHeaderTitle}>About This Product</Text>
+                    </View>
+
+                    {/* Main Description */}
+                    <View style={styles.descriptionCard}>
+                      <Text style={styles.modernDescriptionText}>
+                        {product?.description || 'This premium lighting fixture combines modern design with exceptional functionality. Crafted with high-quality materials and attention to detail, it provides excellent illumination while serving as a stunning centerpiece for any space.'}
+                      </Text>
+                    </View>
+
                   </View>
                 )}
 
                 {activeTab === 'Reviews' && (
                   <View style={styles.modernReviewsSection}>
-                    {hasReviews ? (
+                    {loadingReviews ? (
+                      <View style={styles.loadingReviewsContainer}>
+                        <ActivityIndicator size="small" color="#FF8B47" />
+                        <Text style={styles.loadingReviewsText}>Loading reviews...</Text>
+                      </View>
+                    ) : hasReviews ? (
                       <>
                         <View style={styles.reviewsHeader}>
                           <View style={styles.reviewsHeaderLeft}>
                             <Icon name="star" size={24} color="#FFD700" />
-                            <Text style={styles.reviewsHeaderTitle}>Customer Reviews</Text>
+                            <Text style={styles.reviewsHeaderTitle}>Product Reviews</Text>
                           </View>
                           <View style={styles.reviewsSummary}>
                             <Text style={styles.averageRating}>{averageRating.toFixed(1)}</Text>
@@ -912,24 +995,29 @@ export default function ProductDetail({ route, navigation }) {
                                 />
                               ))}
                             </View>
+                            <Text style={styles.totalReviewsText}>({reviewStats?.total_reviews || 0})</Text>
                           </View>
                         </View>
 
                         <View style={styles.reviewsList}>
-                          {reviews.map((review, index) => (
+                          {productReviews.map((review, index) => (
                             <View key={review.id || index} style={styles.modernReviewItem}>
                               <View style={styles.modernReviewHeader}>
                                 <View style={styles.reviewerInfo}>
                                   <View style={styles.modernReviewAvatar}>
-                                    {review.userAvatar ? (
-                                      <Image source={{ uri: review.userAvatar }} style={styles.modernReviewAvatarImage} />
+                                    {review.buyer?.profile_picture ? (
+                                      <Image source={{ uri: review.buyer.profile_picture }} style={styles.modernReviewAvatarImage} />
                                     ) : (
                                       <Icon name="person" size={20} color="#FFFFFF" />
                                     )}
                                   </View>
                                   <View style={styles.reviewerDetails}>
-                                    <Text style={styles.modernReviewUser}>{review.userName || 'Anonymous User'}</Text>
-                                    <Text style={styles.modernReviewDate}>{review.date || 'Recent'}</Text>
+                                    <Text style={styles.modernReviewUser}>
+                                      {review.buyer?.full_name || 'Anonymous User'}
+                                    </Text>
+                                    <Text style={styles.modernReviewDate}>
+                                      {new Date(review.created_at).toLocaleDateString()}
+                                    </Text>
                                   </View>
                                 </View>
                                 <View style={styles.reviewRatingContainer}>
@@ -946,14 +1034,66 @@ export default function ProductDetail({ route, navigation }) {
                                   <Text style={styles.ratingNumber}>{review.rating}/5</Text>
                                 </View>
                               </View>
+                              {review.review_title && (
+                                <Text style={styles.reviewTitle}>{review.review_title}</Text>
+                              )}
                               <View style={styles.reviewContent}>
                                 <Text style={styles.modernReviewText}>
-                                  {review.comment || review.text || 'Great product! Highly recommended for anyone looking for quality lighting solutions.'}
+                                  {review.comment || 'No comment provided'}
                                 </Text>
                               </View>
                             </View>
                           ))}
                         </View>
+                        
+                        {/* Shop Review Section - Show ONE sample */}
+                        {shopReviewSample && (
+                          <View style={styles.shopReviewSection}>
+                            <View style={styles.shopReviewHeader}>
+                              <Icon name="storefront" size={20} color="#FF8B47" />
+                              <Text style={styles.shopReviewTitle}>Shop Review</Text>
+                            </View>
+                            <View style={styles.shopReviewCard}>
+                              <View style={styles.modernReviewHeader}>
+                                <View style={styles.reviewerInfo}>
+                                  <View style={styles.modernReviewAvatar}>
+                                    {shopReviewSample.buyer?.profile_picture ? (
+                                      <Image source={{ uri: shopReviewSample.buyer.profile_picture }} style={styles.modernReviewAvatarImage} />
+                                    ) : (
+                                      <Icon name="person" size={20} color="#FFFFFF" />
+                                    )}
+                                  </View>
+                                  <View style={styles.reviewerDetails}>
+                                    <Text style={styles.modernReviewUser}>
+                                      {shopReviewSample.buyer?.full_name || 'Anonymous User'}
+                                    </Text>
+                                    <Text style={styles.modernReviewDate}>
+                                      {new Date(shopReviewSample.created_at).toLocaleDateString()}
+                                    </Text>
+                                  </View>
+                                </View>
+                                <View style={styles.reviewRatingContainer}>
+                                  <View style={styles.modernReviewRating}>
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                      <Icon
+                                        key={star}
+                                        name={star <= shopReviewSample.overall_rating ? "star" : "star-outline"}
+                                        size={14}
+                                        color="#FFD700"
+                                      />
+                                    ))}
+                                  </View>
+                                  <Text style={styles.ratingNumber}>{shopReviewSample.overall_rating}/5</Text>
+                                </View>
+                              </View>
+                              <View style={styles.reviewContent}>
+                                <Text style={styles.modernReviewText}>
+                                  {shopReviewSample.comment || 'Great shop!'}
+                                </Text>
+                              </View>
+                            </View>
+                          </View>
+                        )}
                       </>
                     ) : (
                       <View style={styles.modernNoReviewsContainer}>
@@ -962,21 +1102,14 @@ export default function ProductDetail({ route, navigation }) {
                         </View>
                         <Text style={styles.modernNoReviewsTitle}>No Reviews Yet</Text>
                         <Text style={styles.modernNoReviewsSubtitle}>
-                          Be the first to share your experience with this product
+                          This product hasn't been reviewed yet. Purchase this item to be the first to share your experience!
                         </Text>
-                        <TouchableOpacity style={styles.writeReviewButton}>
-                          <Icon name="create-outline" size={18} color="#FF8B47" />
-                          <Text style={styles.writeReviewText}>Write a Review</Text>
-                        </TouchableOpacity>
                       </View>
                     )}
                   </View>
                 )}
               </View>
             </View>
-
-            {/* Add some padding at bottom for scroll */}
-            <View style={{ height: 120 }} />
           </View>
         </View>
       </ScrollView>
@@ -1023,13 +1156,6 @@ export default function ProductDetail({ route, navigation }) {
         >
           <Icon name="cube-outline" size={20} color="#FF8B47" />
           <Text style={styles.viewARText}>VIEW AR</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.reviewButton}
-          onPress={() => setShowReviewModal(true)}
-        >
-          <Icon name="star-outline" size={20} color="#FF8B47" />
-          <Text style={styles.reviewText}>REVIEW</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.buyNowButton}
@@ -1085,18 +1211,18 @@ export default function ProductDetail({ route, navigation }) {
           setShowSpecsModal(false);
         }}
       >
-        <View style={styles.enhancedModalOverlay}>
-          <TouchableOpacity
-            style={styles.enhancedModalBackdrop}
-            activeOpacity={1}
-            onPress={() => setShowSpecsModal(false)}
-          >
-            <View style={styles.enhancedModalContent}>
-              <TouchableOpacity
-                style={styles.enhancedModalContainer}
-                activeOpacity={1}
-                onPress={(e) => e.stopPropagation()}
-              >
+        <TouchableOpacity 
+          style={styles.enhancedModalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowSpecsModal(false)}
+        >
+          <View style={styles.enhancedModalBackdrop}>
+            <TouchableOpacity 
+              style={styles.enhancedModalContent} 
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
+            >
+              <View style={styles.enhancedModalContainer}>
                 {/* Enhanced Modal Header */}
                 <View style={styles.enhancedModalHeader}>
                   <View style={styles.enhancedDragHandle} />
@@ -1118,10 +1244,13 @@ export default function ProductDetail({ route, navigation }) {
 
                 <ScrollView
                   style={styles.enhancedModalBody}
-                  showsVerticalScrollIndicator={false}
+                  showsVerticalScrollIndicator={true}
                   bounces={true}
                   scrollEventThrottle={16}
                   keyboardShouldPersistTaps="handled"
+                  nestedScrollEnabled={true}
+                  removeClippedSubviews={false}
+                  directionalLockEnabled={true}
                 >
                   {/* Enhanced Product Overview Card */}
                   <View style={styles.enhancedOverviewCard}>
@@ -1466,10 +1595,10 @@ export default function ProductDetail({ route, navigation }) {
                     </Text>
                   </View>
                 </ScrollView>
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        </View>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
       </Modal>
 
       {/* Image Viewer Modal */}

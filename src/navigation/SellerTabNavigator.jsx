@@ -13,8 +13,9 @@ import Chat from "../screens/seller/Chat";
 import ProductDetail from "../screens/seller/ProductDetail";
 import EditProducts from "../screens/seller/EditProducts";
 import EditProfileInfo from "../screens/seller/EditshopInfo";
-// KIRI Engine AR Scanner
+// AR Scanners
 import KiriEngineScanner from "../AR_KIRI/KiriEngineScanner";
+import TripoScanner from "../AR_KIRI/TripoScanner";
 import AutoCaptureScanner from "../AR_KIRI/AutoCaptureScanner";
 import CustomCamera from "../AR_KIRI/CustomCamera";
 import PhotoViewer from "../AR_KIRI/PhotoViewer";
@@ -38,6 +39,7 @@ function HomeStack() {
       <Stack.Screen name="EditProfileInfo" component={EditProfileInfo} />
       <Stack.Screen name="Notifications" component={Notifications} />
       <Stack.Screen name="KiriEngineScanner" component={KiriEngineScanner} />
+      <Stack.Screen name="TripoScanner" component={TripoScanner} />
       <Stack.Screen name="AutoCaptureScanner" component={AutoCaptureScanner} options={{ headerShown: false }} />
       <Stack.Screen name="CustomCamera" component={CustomCamera} options={{ headerShown: false }} />
       <Stack.Screen name="PhotoViewer" component={PhotoViewer} options={{ headerShown: false }} />
@@ -72,6 +74,7 @@ function UploadStack() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="UploadScreen" component={UploadItem} />
       <Stack.Screen name="KiriEngineScanner" component={KiriEngineScanner} />
+      <Stack.Screen name="TripoScanner" component={TripoScanner} />
       <Stack.Screen name="AutoCaptureScanner" component={AutoCaptureScanner} options={{ headerShown: false }} />
       <Stack.Screen name="CustomCamera" component={CustomCamera} options={{ headerShown: false }} />
       <Stack.Screen name="PhotoViewer" component={PhotoViewer} options={{ headerShown: false }} />
@@ -189,7 +192,7 @@ function CustomTabBar({ state, descriptors, navigation }) {
       console.log('🎯 Initial check - Current route:', routeName);
       console.log('🎯 Initial check - Active route:', activeRouteName);
       
-      const hideTabBarScreens = ['UploadScreen', 'AutoCaptureScanner', 'CustomCamera', 'KiriEngineScanner', 'PhotoViewer'];
+      const hideTabBarScreens = ['UploadScreen', 'AutoCaptureScanner', 'CustomCamera', 'KiriEngineScanner', 'TripoScanner', 'PhotoViewer'];
       const shouldHideTabBar = hideTabBarScreens.includes(activeRouteName);
       
       console.log('🎯 Initial check - Should hide tab bar:', shouldHideTabBar);
@@ -224,7 +227,7 @@ function CustomTabBar({ state, descriptors, navigation }) {
       console.log('🎯 Active route:', activeRouteName);
       
       // Hide tab bar for specific screens
-      const hideTabBarScreens = ['UploadScreen', 'AutoCaptureScanner', 'CustomCamera', 'KiriEngineScanner', 'PhotoViewer'];
+      const hideTabBarScreens = ['UploadScreen', 'AutoCaptureScanner', 'CustomCamera', 'KiriEngineScanner', 'TripoScanner', 'PhotoViewer'];
       const shouldHideTabBar = hideTabBarScreens.includes(activeRouteName);
       
       console.log('🎯 Should hide tab bar:', shouldHideTabBar);

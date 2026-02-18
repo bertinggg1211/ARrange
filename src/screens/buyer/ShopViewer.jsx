@@ -20,6 +20,8 @@ import { BASE_URL } from "../../api/api";
 import { useCart } from "../../context/CartContext";
 import { useLikes } from "../../context/LikesContext";
 import { getMainImageUri } from "../../utils/imageUtils";
+import { getShopReviews } from "../../api/reviewApi";
+import ProductRatingBadge from "../../components/ProductRatingBadge";
 import styles from "./styles/ShopViewer.style";
 
 // Theme colors
@@ -57,6 +59,11 @@ export default function ShopViewer({ route, navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
+  
+  // Reviews state
+  const [shopReviews, setShopReviews] = useState([]);
+  const [reviewStats, setReviewStats] = useState(null);
+  const [loadingReviews, setLoadingReviews] = useState(false);
   
   // Image viewer state
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
@@ -203,79 +210,72 @@ export default function ShopViewer({ route, navigation }) {
     setViewingImage(null);
   };
 
-  // Render shop ratings and reviews section
-  const renderShopReviews = () => (
-    <View style={styles.reviewsSection}>
-      <View style={styles.reviewsHeader}>
-        <Text style={styles.reviewsTitle}>Shop Reviews</Text>
-        <View style={styles.ratingSummary}>
-          <View style={styles.ratingStars}>
-            {[1, 2, 3, 4, 5].map((star) => (
-              <Icon 
-                key={star}
-                name={star <= (shop?.rating || 0) ? "star" : "star-outline"} 
-                size={20} 
-                color="#FFD700" 
-              />
-            ))}
+  // Load shop reviews
+  useEffect(() => {
+    const loadReviews = async () => {
+      if (!sellerId) return;
+      
+      try {
+        setLoadingReviews(true);
+        console.log('📖 Loading shop reviews for seller:', sellerId);
+        
+        const response = await getShopReviews(sellerId, 10, 0, 'recent');
+        
+        if (response.success) {
+          setShopReviews(response.reviews || []);
+          setReviewStats(response.stats);
+          console.log('✅ Shop reviews loaded:', response.reviews?.length || 0);
+        }
+      } catch (error) {
+        console.error('❌ Error loading shop reviews:', error);
+      } finally {
+        setLoadingReviews(false);
+      }
+    };
+    
+    loadReviews();
+  }, [sellerId]);
+
+  // Render compact shop info section with rating from backend
+  const renderShopInfo = () => (
+    <View style={styles.shopInfoSection}>
+      <View style={styles.infoGrid}>
+        <View style={styles.infoCard}>
+          <View style={styles.infoIconContainer}>
+            <Icon name="star" size={24} color="#FFD700" />
           </View>
-          <Text style={styles.ratingText}>
-            {shop?.rating > 0 ? shop.rating.toFixed(1) : 'No ratings yet'}
+          <Text style={styles.infoValue}>
+            {reviewStats?.overall_rating > 0 ? reviewStats.overall_rating.toFixed(1) : 'New'}
           </Text>
-          <Text style={styles.reviewCount}>
-            ({shop?.reviews || 0} review{shop?.reviews !== 1 ? 's' : ''})
-          </Text>
+          <Text style={styles.infoLabel}>Rating</Text>
+        </View>
+        
+        <View style={styles.infoCard}>
+          <View style={styles.infoIconContainer}>
+            <Icon name="cube" size={24} color="#FF8B47" />
+          </View>
+          <Text style={styles.infoValue}>{shop?.totalProducts || 0}</Text>
+          <Text style={styles.infoLabel}>Products</Text>
+        </View>
+        
+        <View style={styles.infoCard}>
+          <View style={styles.infoIconContainer}>
+            <Icon name="chatbubble-ellipses" size={24} color="#2196F3" />
+          </View>
+          <Text style={styles.infoValue}>{reviewStats?.total_reviews || 0}</Text>
+          <Text style={styles.infoLabel}>Reviews</Text>
+          <TouchableOpacity 
+            style={styles.viewAllReviewsButton}
+            onPress={() => navigation.navigate('ShopReviews', { 
+              sellerId, 
+              shopName: shop?.name || shop?.shopName 
+            })}
+          >
+            <Text style={styles.viewAllReviewsText}>View All</Text>
+            <Icon name="chevron-forward" size={16} color="#FF8B47" />
+          </TouchableOpacity>
         </View>
       </View>
-
-      {/* Reviews List */}
-      <View style={styles.reviewsList}>
-        {/* Sample reviews - In real implementation, these would come from API */}
-        {shop?.reviews > 0 ? (
-          <View style={styles.reviewItem}>
-            <View style={styles.reviewHeader}>
-              <View style={styles.reviewerInfo}>
-                <View style={styles.reviewerAvatar}>
-                  <Icon name="person" size={20} color="#666666" />
-                </View>
-                <View style={styles.reviewerDetails}>
-                  <Text style={styles.reviewerName}>Sarah M.</Text>
-                  <View style={styles.reviewRating}>
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <Icon 
-                        key={star}
-                        name="star" 
-                        size={14} 
-                        color="#FFD700" 
-                      />
-                    ))}
-                  </View>
-                </View>
-              </View>
-              <Text style={styles.reviewDate}>2 days ago</Text>
-            </View>
-            <Text style={styles.reviewText}>
-              "Excellent service! The shop owner was very friendly and helpful. 
-              Products arrived exactly as described and the quality is outstanding. 
-              Highly recommend this shop!"
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.noReviewsContainer}>
-            <Icon name="chatbubbles-outline" size={40} color="#E0E0E0" />
-            <Text style={styles.noReviewsTitle}>No Reviews Yet</Text>
-            <Text style={styles.noReviewsSubtitle}>
-              Be the first to review this shop after making a purchase!
-            </Text>
-          </View>
-        )}
-      </View>
-
-      {/* Write Review Button */}
-      <TouchableOpacity style={styles.writeReviewButton}>
-        <Icon name="create-outline" size={20} color="#FF8B47" />
-        <Text style={styles.writeReviewText}>Write a Review</Text>
-      </TouchableOpacity>
     </View>
   );
 
@@ -381,28 +381,12 @@ export default function ShopViewer({ route, navigation }) {
           
           {/* Shop Details */}
           <View style={styles.shopDetails}>
-            <View style={styles.shopNameRow}>
-              <Text style={styles.shopName}>{shop?.name || 'Shop Name'}</Text>
-            </View>
-            <Text style={styles.shopOwner}>{shop?.ownerName || 'Shop Owner'}</Text>
-            
-            {/* Stats Row */}
-            <View style={styles.statsRow}>
-              <View style={styles.statItem}>
-                <Icon name="star" size={16} color="#FFD700" />
-                <Text style={styles.statText}>
-                  {shop?.rating > 0 ? shop.rating.toFixed(1) : '5.0'}
-                </Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statItem}>
-                <Icon name="cube-outline" size={16} color={Colors.textSecondary} />
-                <Text style={styles.statText}>{shop?.totalProducts || 0} products</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statItem}>
-                <Icon name="chatbubbles-outline" size={16} color={Colors.textSecondary} />
-                <Text style={styles.statText}>4.8k reviews</Text>
+            <View style={styles.shopDetailsCard}>
+              <Text style={styles.shopName}>{shop?.shopName || 'Shop Name'}</Text>
+              <View style={styles.shopDivider} />
+              <View style={styles.ownerRow}>
+                <Text style={styles.ownerLabel}>Owner: </Text>
+                <Text style={styles.shopOwner}>{shop?.name || shop?.ownerName || 'Shop Owner'}</Text>
               </View>
             </View>
           </View>
@@ -567,6 +551,17 @@ export default function ShopViewer({ route, navigation }) {
               color={isLiked ? "#FF6B6B" : "#666666"} 
             />
           </TouchableOpacity>
+          
+          {/* Product Rating Badge */}
+          {item.rating > 0 && (
+            <View style={{ position: 'absolute', bottom: 8, left: 8 }}>
+              <ProductRatingBadge 
+                rating={item.rating} 
+                reviewCount={item.reviewCount}
+                size="small"
+              />
+            </View>
+          )}
         </View>
         
         <View style={styles.productInfo}>
@@ -644,6 +639,7 @@ export default function ShopViewer({ route, navigation }) {
         ListHeaderComponent={() => (
           <View>
             {renderShopHeader()}
+            {renderShopInfo()}
             {renderCategoryFilter()}
           </View>
         )}
@@ -666,7 +662,6 @@ export default function ShopViewer({ route, navigation }) {
                 <Text style={styles.loadMoreText}>Loading more products...</Text>
               </View>
             ) : null}
-            {renderShopReviews()}
           </View>
         )}
       />

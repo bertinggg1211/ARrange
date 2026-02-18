@@ -195,10 +195,7 @@ export default StyleSheet.create({
 
   // Delete Account styles
   deleteItem: {
-    borderTopWidth: 1,
-    borderTopColor: '#FFE6E6',
-    marginTop: 8,
-    paddingTop: 16,
+    borderBottomWidth: 0,
   },
   deleteText: {
     color: '#FF3B30',

@@ -19,6 +19,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import ImageCropPicker from 'react-native-image-crop-picker';
 import { launchImageLibrary } from 'react-native-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { updateProduct, getSellerProductById } from '../../api/productApi';
 import { getMainImageUri } from '../../utils/imageUtils';
 import { BASE_URL } from '../../api/api';
@@ -969,6 +970,57 @@ export default function EditProducts({ route, navigation }) {
       >
         <ScrollView showsVerticalScrollIndicator={false}>
           
+          {/* Product Statistics */}
+          <View style={styles.formSection}>
+            <Text style={styles.sectionTitle}>Product Statistics</Text>
+            <Text style={styles.sectionSubtitle}>Read-only performance metrics</Text>
+            
+            <View style={styles.statsGrid}>
+              <View style={styles.statCard}>
+                <Icon name="bag-check-outline" size={24} color="#10B981" />
+                <Text style={styles.statValue}>{sold || 0}</Text>
+                <Text style={styles.statLabel}>Sold</Text>
+              </View>
+              
+              <View style={styles.statCard}>
+                <Icon name="cube-outline" size={24} color="#3B82F6" />
+                <Text style={styles.statValue}>{stock || 0}</Text>
+                <Text style={styles.statLabel}>In Stock</Text>
+              </View>
+              
+              <View style={styles.statCard}>
+                <Icon name="eye-outline" size={24} color="#8B5CF6" />
+                <Text style={styles.statValue}>{views || 0}</Text>
+                <Text style={styles.statLabel}>Views</Text>
+              </View>
+              
+              <View style={styles.statCard}>
+                <Icon name="star" size={24} color="#F59E0B" />
+                <Text style={styles.statValue}>{rating ? rating.toFixed(1) : '0.0'}</Text>
+                <Text style={styles.statLabel}>Rating ({reviewCount || 0})</Text>
+              </View>
+            </View>
+            
+            <View style={styles.stockAlert}>
+              {parseInt(stock) === 0 ? (
+                <View style={[styles.alertBadge, styles.alertDanger]}>
+                  <Icon name="warning" size={16} color="#EF4444" />
+                  <Text style={styles.alertText}>Out of Stock</Text>
+                </View>
+              ) : parseInt(stock) <= 5 ? (
+                <View style={[styles.alertBadge, styles.alertWarning]}>
+                  <Icon name="alert-circle" size={16} color="#F59E0B" />
+                  <Text style={styles.alertText}>Low Stock Warning</Text>
+                </View>
+              ) : (
+                <View style={[styles.alertBadge, styles.alertSuccess]}>
+                  <Icon name="checkmark-circle" size={16} color="#10B981" />
+                  <Text style={styles.alertText}>Stock Available</Text>
+                </View>
+              )}
+            </View>
+          </View>
+
           {/* Product Summary Section */}
           <View style={styles.summarySection}>
             <Text style={styles.summaryTitle}>Product Summary</Text>
@@ -1447,7 +1499,7 @@ export default function EditProducts({ route, navigation }) {
                 <Icon name="cube-outline" size={24} color={hasAR ? "#10B981" : "#6B7280"} />
                 <View style={styles.arScanTextContainer}>
                   <Text style={styles.arScanTitle}>
-                    {hasAR ? "AR Model Available" : "Create 3D Model"}
+                    {hasAR ? "AR Model Available ✓" : "Create 3D Model"}
                   </Text>
                   <Text style={styles.arScanDescription}>
                     {hasAR 
@@ -1457,82 +1509,80 @@ export default function EditProducts({ route, navigation }) {
                   </Text>
                   {hasAR && arScanData && (
                     <Text style={styles.arScanDetails}>
-                      Quality: {arScanData.quality || "High"} • Size: {arScanData.fileSize || "Unknown"}
+                      Quality: {arScanData.quality || "High"} • Size: {arScanData.modelSize || arScanData.fileSize || "Unknown"}
                     </Text>
                   )}
                 </View>
               </View>
               
-              <TouchableOpacity 
-                style={[styles.arScanButton, hasAR && styles.arScanButtonActive]}
-                onPress={() => {
-                  console.log('🎯 AR Scan button pressed for product:', product.id);
-                  navigation.navigate('KiriEngineScanner', {
-                    productId: product.id,
-                    productName: product.name || 'Product'
-                  });
-                }}
-              >
-                <Icon 
-                  name={hasAR ? "checkmark-circle" : "camera-outline"} 
-                  size={20} 
-                  color={hasAR ? "#FFFFFF" : "#FF8B47"} 
-                />
-                <Text style={[styles.arScanButtonText, hasAR && styles.arScanButtonTextActive]}>
-                  {hasAR ? "Update 3D Model" : "Start 3D Scan"}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+              <View style={styles.arButtonsContainer}>
+                {hasAR && (
+                  <TouchableOpacity 
+                    style={styles.arDeleteButton}
+                    onPress={() => {
+                      Alert.alert(
+                        'Delete 3D Model',
+                        'Are you sure you want to delete the AR model for this product? Customers will no longer be able to view it in AR.',
+                        [
+                          {
+                            text: 'Cancel',
+                            style: 'cancel'
+                          },
+                          {
+                            text: 'Delete',
+                            style: 'destructive',
+                            onPress: async () => {
+                              try {
+                                // Call API to delete AR model
+                                const token = await AsyncStorage.getItem('authToken');
+                                const response = await fetch(`${BASE_URL}/api/products/${product.id}/ar-model`, {
+                                  method: 'DELETE',
+                                  headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                    'Content-Type': 'application/json'
+                                  }
+                                });
 
-          {/* Product Statistics */}
-          <View style={styles.formSection}>
-            <Text style={styles.sectionTitle}>Product Statistics</Text>
-            <Text style={styles.sectionSubtitle}>Read-only performance metrics</Text>
-            
-            <View style={styles.statsGrid}>
-              <View style={styles.statCard}>
-                <Icon name="bag-check-outline" size={24} color="#10B981" />
-                <Text style={styles.statValue}>{sold || 0}</Text>
-                <Text style={styles.statLabel}>Sold</Text>
+                                if (response.ok) {
+                                  setHasAR(false);
+                                  setArScanData(null);
+                                  Alert.alert('Success', '3D model deleted successfully. You can now create a new one.');
+                                } else {
+                                  Alert.alert('Error', 'Failed to delete 3D model. Please try again.');
+                                }
+                              } catch (error) {
+                                Alert.alert('Error', 'Failed to delete 3D model. Please try again.');
+                              }
+                            }
+                          }
+                        ]
+                      );
+                    }}
+                  >
+                    <Icon name="trash-outline" size={20} color="#EF4444" />
+                    <Text style={styles.arDeleteButtonText}>Delete</Text>
+                  </TouchableOpacity>
+                )}
+                
+                <TouchableOpacity 
+                  style={[styles.arScanButton, hasAR && styles.arScanButtonActive]}
+                  onPress={() => {
+                    navigation.navigate('TripoScanner', {
+                      productId: product.id,
+                      productName: product.name || 'Product'
+                    });
+                  }}
+                >
+                  <Icon 
+                    name={hasAR ? "refresh-outline" : "camera-outline"} 
+                    size={20} 
+                    color={hasAR ? "#FFFFFF" : "#FF8B47"} 
+                  />
+                  <Text style={[styles.arScanButtonText, hasAR && styles.arScanButtonTextActive]}>
+                    {hasAR ? "Update" : "Start Scan"}
+                  </Text>
+                </TouchableOpacity>
               </View>
-              
-              <View style={styles.statCard}>
-                <Icon name="cube-outline" size={24} color="#3B82F6" />
-                <Text style={styles.statValue}>{stock || 0}</Text>
-                <Text style={styles.statLabel}>In Stock</Text>
-              </View>
-              
-              <View style={styles.statCard}>
-                <Icon name="eye-outline" size={24} color="#8B5CF6" />
-                <Text style={styles.statValue}>{views || 0}</Text>
-                <Text style={styles.statLabel}>Views</Text>
-              </View>
-              
-              <View style={styles.statCard}>
-                <Icon name="star" size={24} color="#F59E0B" />
-                <Text style={styles.statValue}>{rating ? rating.toFixed(1) : '0.0'}</Text>
-                <Text style={styles.statLabel}>Rating ({reviewCount || 0})</Text>
-              </View>
-            </View>
-            
-            <View style={styles.stockAlert}>
-              {parseInt(stock) === 0 ? (
-                <View style={[styles.alertBadge, styles.alertDanger]}>
-                  <Icon name="warning" size={16} color="#EF4444" />
-                  <Text style={styles.alertText}>Out of Stock</Text>
-                </View>
-              ) : parseInt(stock) <= 5 ? (
-                <View style={[styles.alertBadge, styles.alertWarning]}>
-                  <Icon name="alert-circle" size={16} color="#F59E0B" />
-                  <Text style={styles.alertText}>Low Stock Warning</Text>
-                </View>
-              ) : (
-                <View style={[styles.alertBadge, styles.alertSuccess]}>
-                  <Icon name="checkmark-circle" size={16} color="#10B981" />
-                  <Text style={styles.alertText}>Stock Available</Text>
-                </View>
-              )}
             </View>
           </View>
 
@@ -1540,76 +1590,6 @@ export default function EditProducts({ route, navigation }) {
           <View style={styles.formSection}>
             <Text style={styles.sectionTitle}>Additional Features</Text>
             
-            <View style={styles.featureRow}>
-              <View style={styles.featureItem}>
-                <Icon 
-                  name={(product?.hasAR || product?.arModel || product?.arScanData) ? "cube" : "scan-outline"} 
-                  size={24} 
-                  color={(product?.hasAR || product?.arModel || product?.arScanData) ? "#10B981" : "#94A3B8"} 
-                />
-                <View style={styles.featureTextContainer}>
-                  <Text style={styles.featureLabel}>AR Model</Text>
-                  <Text style={styles.featureDescription}>
-                    {(product?.hasAR || product?.arModel || product?.arScanData)
-                      ? '✅ AR scan uploaded - Customers can view in AR' 
-                      : '❌ No AR scan - Upload 3D model for AR visualization'
-                    }
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.arStatusContainer}>
-                {(product?.hasAR || product?.arModel || product?.arScanData) ? (
-                  <View style={styles.arStatusBadge}>
-                    <Icon name="checkmark-circle" size={16} color="#10B981" />
-                    <Text style={styles.arStatusText}>AR Ready</Text>
-                  </View>
-                ) : (
-                  <View style={[styles.arStatusBadge, styles.arStatusBadgeInactive]}>
-                    <Icon name="close-circle" size={16} color="#EF4444" />
-                    <Text style={[styles.arStatusText, styles.arStatusTextInactive]}>No AR Scan</Text>
-                  </View>
-                )}
-                <TouchableOpacity
-                  style={[
-                    styles.featureButton, 
-                    (product?.hasAR || product?.arModel || product?.arScanData) && styles.featureButtonSecondary
-                  ]}
-                  onPress={() => {
-                    Alert.alert(
-                      (product?.hasAR || product?.arModel || product?.arScanData) ? 'Update AR Model' : 'Upload AR Scan',
-                      (product?.hasAR || product?.arModel || product?.arScanData)
-                        ? 'Replace the current AR model with a new 3D scan. This will allow customers to visualize the updated product in their space using augmented reality.'
-                        : 'Create a 3D scan of your product to enable AR visualization. Customers will be able to place and view your product in their own space before purchasing.',
-                      [
-                        { text: 'Cancel', style: 'cancel' },
-                        { 
-                          text: (product?.hasAR || product?.arModel || product?.arScanData) ? 'Replace AR Model' : 'Start AR Scan', 
-                          onPress: () => {
-                            navigation.navigate('KiriEngineScanner', {
-                              productId: product.id,
-                              productName: product.name
-                            });
-                          }
-                        }
-                      ]
-                    );
-                  }}
-                >
-                  <Icon 
-                    name={(product?.hasAR || product?.arModel || product?.arScanData) ? "refresh" : "camera"} 
-                    size={16} 
-                    color={(product?.hasAR || product?.arModel || product?.arScanData) ? "#64748B" : "#FF8B47"} 
-                  />
-                  <Text style={[
-                    styles.featureButtonText,
-                    (product?.hasAR || product?.arModel || product?.arScanData) && styles.featureButtonTextSecondary
-                  ]}>
-                    {(product?.hasAR || product?.arModel || product?.arScanData) ? 'Replace Scan' : 'Start AR Scan'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
             <View style={styles.featureRow}>
               <View style={styles.featureItem}>
                 <Icon name="eye-outline" size={24} color="#FF8B47" />

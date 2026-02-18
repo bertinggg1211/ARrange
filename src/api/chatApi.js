@@ -178,3 +178,54 @@ export const deleteChat = async (partnerId) => {
     throw error;
   }
 };
+
+// Send automated order status notification to buyer
+export const sendOrderNotification = async (buyerId, orderNumber, status, productData = null, trackingNumber = null) => {
+  try {
+    console.log('🔔 Sending order notification:', { buyerId, orderNumber, status, productData, trackingNumber });
+    
+    const token = await authApi.getStoredToken();
+    if (!token) {
+      throw new Error('No authentication token found. Please login again.');
+    }
+    
+    const response = await fetch(`${BASE_URL}/api/chat/send-order-notification`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        buyerId,
+        orderNumber,
+        status,
+        productData,
+        trackingNumber
+      })
+    });
+    
+    console.log('🔔 Order notification response status:', response.status);
+    const data = await response.json();
+    console.log('🔔 Order notification response data:', JSON.stringify(data, null, 2));
+    
+    if (!response.ok) {
+      throw new Error(data?.message || 'Failed to send order notification');
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error sending order notification:', error);
+    console.error('Error details:', error.message);
+    // Don't throw error - notifications are not critical
+    return { success: false, error: error.message };
+  }
+};
+
+export default {
+  getMessages,
+  sendMessage,
+  getConversations,
+  markMessagesAsRead,
+  deleteChat,
+  sendOrderNotification
+};

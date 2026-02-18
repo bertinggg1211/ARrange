@@ -3,6 +3,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 // Supabase users repository
 const { supabase } = require('../db/supabase');
+// Rate limiting middleware
+const { authLimiter, signupLimiter } = require('../middleware/rateLimiter');
 
 const router = express.Router();
 const auth = require('../middleware/auth');
@@ -18,7 +20,7 @@ function createToken(user) {
   );
 }
 
-router.post('/signup', async (req, res) => {
+router.post('/signup', signupLimiter, async (req, res) => {
   try {
     const { role, fullName, email, password, address, phone, shopName } = req.body;
 
@@ -148,7 +150,7 @@ router.post('/signup', async (req, res) => {
   }
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
     
@@ -170,9 +172,17 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ message: 'Invalid email or password' }); 
     }
 
+    console.log('🔍 Login attempt for:', normalizedEmail);
+    console.log('🔍 User ID:', userDoc.id);
+    console.log('🔍 Password hash exists:', !!userDoc.password_hash);
+    console.log('🔍 Hash length:', userDoc.password_hash?.length);
+    console.log('🔍 Hash preview:', userDoc.password_hash?.substring(0, 20) + '...');
+
     const valid = await bcrypt.compare(password, userDoc.password_hash);
+    console.log('🔍 Password comparison result:', valid);
+    
     if (!valid) {
-      console.log('Invalid password for user:', normalizedEmail);
+      console.log('❌ Invalid password for user:', normalizedEmail);
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
@@ -241,6 +251,60 @@ router.get('/me', auth, async (req, res) => {
     });
   } catch (e) {
     console.error('❌ /me endpoint error:', e);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Update password endpoint - for password reset flow
+router.post('/update-password', async (req, res) => {
+  try {
+    const { userId, email, newPassword } = req.body;
+    
+    // Accept either userId or email - prefer email for password reset flow
+    if ((!userId && !email) || !newPassword) {
+      return res.status(400).json({ message: 'User identification (email or userId) and new password are required' });
+    }
+
+    console.log('🔐 Updating password for:', email || userId);
+    console.log('🔐 New password length:', newPassword?.length);
+
+    // Hash the new password
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    console.log('🔐 Generated hash length:', passwordHash?.length);
+    console.log('🔐 Hash preview:', passwordHash?.substring(0, 20) + '...');
+    
+    // Update password_hash in users table - prioritize email lookup
+    let query = supabase.from('users').update({ password_hash: passwordHash });
+    
+    if (email) {
+      const normalizedEmail = email.trim().toLowerCase();
+      query = query.eq('email', normalizedEmail);
+      console.log('🔐 Updating by email:', normalizedEmail);
+    } else {
+      query = query.eq('id', userId);
+      console.log('🔐 Updating by user ID:', userId);
+    }
+    
+    const { data, error } = await query.select();
+
+    if (error) {
+      console.error('❌ Error updating password:', error);
+      return res.status(500).json({ message: 'Failed to update password', error: error.message });
+    }
+
+    if (!data || data.length === 0) {
+      console.error('❌ User not found for password update');
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    console.log('✅ Password updated successfully for user:', data[0].id);
+    
+    res.json({ 
+      success: true, 
+      message: 'Password updated successfully' 
+    });
+  } catch (err) {
+    console.error('❌ Password update error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });

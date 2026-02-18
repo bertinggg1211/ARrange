@@ -11,21 +11,8 @@ export const ChatProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const { user } = useAuth();
 
-  // Load conversations on mount and when user changes
-  useEffect(() => {
-    if (user) {
-      loadConversations();
-    } else {
-      // Clear chat data when user logs out
-      console.log('🧹 ChatContext: User logged out, clearing chat data');
-      setChats([]);
-      setConversations([]);
-      setError(null);
-    }
-  }, [user]);
-
-  // Load conversations from backend
-  const loadConversations = async () => {
+  // Load conversations from backend - useCallback to prevent infinite loops
+  const loadConversations = React.useCallback(async () => {
     try {
       setLoading(true);
       console.log('💬 ChatContext: Loading conversations for user:', user?.id, 'role:', user?.role);
@@ -45,10 +32,23 @@ export const ChatProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  // Load conversations on mount and when user changes
+  useEffect(() => {
+    if (user) {
+      loadConversations();
+    } else {
+      // Clear chat data when user logs out
+      console.log('🧹 ChatContext: User logged out, clearing chat data');
+      setChats([]);
+      setConversations([]);
+      setError(null);
+    }
+  }, [user, loadConversations]);
 
   // Get shop info by ID (for backward compatibility)
-  const getShop = (shopId) => {
+  const getShop = React.useCallback((shopId) => {
     const conversation = conversations.find(conv => conv.partnerId === shopId);
     if (conversation) {
       return {
@@ -59,49 +59,70 @@ export const ChatProvider = ({ children }) => {
       };
     }
     return null;
-  };
+  }, [conversations]);
 
   // Get chat by shop ID
-  const getChatByShopId = async (shopId) => {
+  const getChatByShopId = React.useCallback(async (shopId) => {
     try {
       console.log('💬 ChatContext: Getting chat for shop:', shopId);
+      
+      if (!shopId) {
+        throw new Error('Shop ID is required');
+      }
+      
       const response = await getMessages(shopId);
       console.log('💬 ChatContext: Response received:', response);
+      
       if (response.success) {
+        const messages = (response.messages || []).map(msg => {
+          return {
+            id: msg.id,
+            sender: msg.sender,
+            message: msg.message,
+            timestamp: msg.timestamp,
+            date: msg.date,
+            isRead: msg.is_read,
+            productData: msg.productData || null
+          };
+        });
+        
         return {
           id: `chat_${shopId}`,
           shopId: shopId,
-          messages: response.messages.map(msg => {
-            console.log('💬 ChatContext: Mapping message:', msg.id, 'productData:', msg.productData);
-            return {
-              id: msg.id,
-              sender: msg.sender,
-              message: msg.message,
-              timestamp: msg.timestamp, // Backend already formats this
-              date: msg.date, // Backend already provides this
-              isRead: msg.is_read,
-              productData: msg.productData || null
-            };
-          }),
-          lastMessage: response.messages[response.messages.length - 1]?.message || '',
-          lastMessageTime: response.messages[response.messages.length - 1]?.date || Date.now(),
-          unreadCount: response.messages.filter(msg => msg.sender === 'seller' && !msg.is_read).length,
+          messages: messages,
+          lastMessage: messages[messages.length - 1]?.message || '',
+          lastMessageTime: messages[messages.length - 1]?.date || Date.now(),
+          unreadCount: messages.filter(msg => msg.sender === 'seller' && !msg.is_read).length,
           isActive: true
         };
+      } else {
+        // API returned success: false
+        console.error('❌ ChatContext: API returned error:', response.message);
+        throw new Error(response.message || 'Failed to load chat messages');
       }
     } catch (error) {
-      console.error('Error loading chat:', error);
+      console.error('❌ ChatContext: Error loading chat:', error);
+      // Return empty chat instead of throwing to prevent infinite loading
+      return {
+        id: `chat_${shopId}`,
+        shopId: shopId,
+        messages: [],
+        lastMessage: '',
+        lastMessageTime: Date.now(),
+        unreadCount: 0,
+        isActive: true,
+        error: error.message
+      };
     }
-    return null;
-  };
+  }, []);
 
   // Get all active chats
-  const getActiveChats = () => {
+  const getActiveChats = React.useCallback(() => {
     return conversations.filter(conv => conv.isActive);
-  };
+  }, [conversations]);
 
   // Add message to existing chat
-  const addMessage = async (chatId, message) => {
+  const addMessage = React.useCallback(async (chatId, message) => {
     try {
       // Extract sellerId from chatId (format: chat_sellerId)
       const sellerId = chatId.replace('chat_', '');
@@ -109,7 +130,20 @@ export const ChatProvider = ({ children }) => {
       // Send message to backend
       const response = await sendMessage(sellerId, message.message);
       if (response.success) {
-        // Update local state
+        // Update local state immediately
+        setConversations(prevConversations =>
+          prevConversations.map(conv =>
+            conv.partnerId === sellerId
+              ? {
+                  ...conv,
+                  lastMessage: message.message,
+                  lastMessageTime: message.date || Date.now(),
+                  unreadCount: message.sender === 'seller' ? conv.unreadCount + 1 : conv.unreadCount
+                }
+              : conv
+          )
+        );
+        
         setChats(prevChats => 
           prevChats.map(chat => 
             chat.id === chatId 
@@ -124,17 +158,16 @@ export const ChatProvider = ({ children }) => {
           )
         );
         
-        // Refresh conversations
-        loadConversations();
+        // Don't reload - local state is already updated
       }
     } catch (error) {
       console.error('Error adding message:', error);
       throw error;
     }
-  };
+  }, []);
 
   // Create new chat with a shop (when user contacts shop for first time)
-  const createChatWithShop = async (shopId, initialMessage, productData = null) => {
+  const createChatWithShop = React.useCallback(async (shopId, initialMessage, productData = null) => {
     try {
       console.log('💬 Creating chat with shop:', shopId, 'message:', initialMessage);
       console.log('💬 Product data received:', productData);
@@ -191,30 +224,35 @@ export const ChatProvider = ({ children }) => {
       throw error;
     }
     return null;
-  };
+  }, []);
 
   // Mark chat as read
-  const markChatAsRead = async (chatId) => {
+  const markChatAsRead = React.useCallback(async (chatId) => {
     try {
       const sellerId = chatId.replace('chat_', '');
       await markMessagesAsRead(sellerId);
       
-      // Update local state
+      // Update local state immediately without full refresh
+      setConversations(prevConversations =>
+        prevConversations.map(conv =>
+          conv.partnerId === sellerId ? { ...conv, unreadCount: 0 } : conv
+        )
+      );
+      
       setChats(prevChats =>
         prevChats.map(chat =>
           chat.id === chatId ? { ...chat, unreadCount: 0 } : chat
         )
       );
       
-      // Refresh conversations
-      await loadConversations();
+      // Don't reload conversations - just update local state
     } catch (error) {
       console.error('Error marking chat as read:', error);
     }
-  };
+  }, []);
 
   // Delete entire chat conversation
-  const deleteChat = async (partnerId) => {
+  const deleteChat = React.useCallback(async (partnerId) => {
     try {
       console.log('🗑️ ChatContext: Deleting chat with partner:', partnerId);
       
@@ -237,10 +275,10 @@ export const ChatProvider = ({ children }) => {
       console.error('❌ ChatContext: Error deleting chat:', error);
       throw error;
     }
-  };
+  }, []);
 
   // Get formatted chat data for chat list
-  const getFormattedChats = () => {
+  const getFormattedChats = React.useCallback(() => {
     return conversations.map(conversation => ({
       id: `chat_${conversation.partnerId}`,
       sellerName: conversation.partnerName,
@@ -257,10 +295,10 @@ export const ChatProvider = ({ children }) => {
         isOnline: conversation.isOnline
       },
     }));
-  };
+  }, [conversations]);
 
   // Format timestamp for display
-  const formatTimestamp = (date) => {
+  const formatTimestamp = React.useCallback((date) => {
     const now = new Date();
     const diffMs = now - date;
     const diffMins = Math.floor(diffMs / (1000 * 60));
@@ -273,7 +311,7 @@ export const ChatProvider = ({ children }) => {
     if (diffDays === 1) return 'Yesterday';
     if (diffDays < 7) return `${diffDays} days ago`;
     return date.toLocaleDateString();
-  };
+  }, []);
 
   const value = {
     chats,

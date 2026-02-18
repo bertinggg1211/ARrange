@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -9,6 +9,7 @@ import { CartProvider } from "./src/context/CartContext";
 import { LikesProvider } from "./src/context/LikesContext";
 import { ChatProvider } from "./src/context/ChatContext";
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
+import deepLinkingService from "./src/utils/deepLinking";
 
 // Chat screens (moved to root level to hide bottom tabs)
 import ChatDetail from "./src/screens/seller/ChatDetail";
@@ -17,6 +18,8 @@ import ChatDetail from "./src/screens/seller/ChatDetail";
 import Onboarding from "./src/carousel_onboarding/components/Onboarding";
 import Signup from "./src/screens/auth/Signup";
 import Login from "./src/screens/auth/Login";
+import ForgotPassword from "./src/screens/auth/ForgotPassword";
+import ResetPassword from "./src/screens/auth/ResetPassword";
 
 const Stack = createNativeStackNavigator();
 
@@ -45,6 +48,8 @@ function AuthNavigator() {
       <Stack.Screen name="Onboarding" component={Onboarding} />
       <Stack.Screen name="Signup" component={Signup} />
       <Stack.Screen name="Login" component={Login} />
+      <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
+      <Stack.Screen name="ResetPassword" component={ResetPassword} />
     </Stack.Navigator>
   );
 }
@@ -84,13 +89,20 @@ function AppNavigator() {
 }
 
 export default function App() {
+  const navigationRef = useRef(null);
+
+  useEffect(() => {
+    // Initialize deep linking
+    deepLinkingService.initialize(navigationRef);
+  }, []);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
         <ChatProvider>
           <CartProvider>
             <LikesProvider>
-              <NavigationContainer>
+              <NavigationContainer ref={navigationRef}>
                 <AppNavigator />
               </NavigationContainer>
             </LikesProvider>

@@ -7,8 +7,12 @@ import {
   Animated,
   Dimensions,
   StatusBar,
+  StyleSheet,
+  Easing,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import theme from '../theme/colors';
+const { Colors, Theme } = theme;
 
 const { width, height } = Dimensions.get('window');
 
@@ -19,17 +23,17 @@ const AccountDeletedModal = ({ visible, onClose }) => {
 
   useEffect(() => {
     if (visible) {
-      // Animate modal appearance
+      // Entrance animation with bounce effect
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
           duration: 300,
           useNativeDriver: true,
         }),
-        Animated.spring(scaleAnim, {
+        Animated.timing(scaleAnim, {
           toValue: 1,
-          tension: 100,
-          friction: 8,
+          duration: 400,
+          easing: Easing.out(Easing.back(1.3)),
           useNativeDriver: true,
         }),
       ]).start();
@@ -38,11 +42,11 @@ const AccountDeletedModal = ({ visible, onClose }) => {
       setTimeout(() => {
         Animated.spring(checkmarkAnim, {
           toValue: 1,
-          tension: 100,
-          friction: 6,
+          tension: 80,
+          friction: 7,
           useNativeDriver: true,
         }).start();
-      }, 400);
+      }, 300);
     } else {
       // Reset animations
       fadeAnim.setValue(0);
@@ -55,12 +59,14 @@ const AccountDeletedModal = ({ visible, onClose }) => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 0,
-        duration: 200,
+        duration: 250,
+        easing: Easing.in(Easing.ease),
         useNativeDriver: true,
       }),
       Animated.timing(scaleAnim, {
-        toValue: 0.3,
-        duration: 200,
+        toValue: 0.8,
+        duration: 250,
+        easing: Easing.in(Easing.ease),
         useNativeDriver: true,
       }),
     ]).start(() => {
@@ -114,55 +120,50 @@ const AccountDeletedModal = ({ visible, onClose }) => {
                   }
                 ]}
               >
-                <Icon name="checkmark" size={48} color="#FFFFFF" />
+                <Icon name="trash-outline" size={50} color="#FFFFFF" />
               </Animated.View>
             </View>
           </View>
 
           {/* Success Message */}
-          <Text style={styles.title}>Account Completely Deleted</Text>
+          <Text style={styles.title}>Account Deleted</Text>
           <Text style={styles.subtitle}>
-            Your account and all associated data have been permanently removed
+            Your account and all associated data have been permanently removed from our system.
           </Text>
 
           {/* Deletion Summary */}
           <View style={styles.summaryContainer}>
             <View style={styles.summaryItem}>
-              <Icon name="checkmark-circle" size={20} color="#4ECDC4" />
-              <Text style={styles.summaryText}>User account and profile</Text>
+              <Icon name="checkmark-circle" size={20} color={Colors.success} />
+              <Text style={styles.summaryText}>Personal profile & settings</Text>
             </View>
             
             <View style={styles.summaryItem}>
-              <Icon name="checkmark-circle" size={20} color="#4ECDC4" />
-              <Text style={styles.summaryText}>All products and images</Text>
+              <Icon name="checkmark-circle" size={20} color={Colors.success} />
+              <Text style={styles.summaryText}>Shopping cart & favorites</Text>
             </View>
             
             <View style={styles.summaryItem}>
-              <Icon name="checkmark-circle" size={20} color="#4ECDC4" />
-              <Text style={styles.summaryText}>Shop logos and banners</Text>
+              <Icon name="checkmark-circle" size={20} color={Colors.success} />
+              <Text style={styles.summaryText}>Order history & tracking</Text>
             </View>
             
             <View style={styles.summaryItem}>
-              <Icon name="checkmark-circle" size={20} color="#4ECDC4" />
-              <Text style={styles.summaryText}>Cart items and orders</Text>
+              <Icon name="checkmark-circle" size={20} color={Colors.success} />
+              <Text style={styles.summaryText}>Messages & conversations</Text>
             </View>
             
             <View style={styles.summaryItem}>
-              <Icon name="checkmark-circle" size={20} color="#4ECDC4" />
-              <Text style={styles.summaryText}>Messages and notifications</Text>
-            </View>
-            
-            <View style={styles.summaryItem}>
-              <Icon name="checkmark-circle" size={20} color="#4ECDC4" />
-              <Text style={styles.summaryText}>Cloud storage files</Text>
+              <Icon name="checkmark-circle" size={20} color={Colors.success} />
+              <Text style={styles.summaryText}>All uploaded content</Text>
             </View>
           </View>
 
           {/* Security Message */}
           <View style={styles.securityMessage}>
-            <Icon name="shield-checkmark" size={24} color="#4ECDC4" />
+            <Icon name="shield-checkmark-outline" size={24} color={Colors.secondary} />
             <Text style={styles.securityText}>
-              All data has been permanently removed from our servers and cannot be recovered.
+              All your data has been securely deleted and cannot be recovered.
             </Text>
           </View>
 
@@ -170,8 +171,9 @@ const AccountDeletedModal = ({ visible, onClose }) => {
           <TouchableOpacity 
             style={styles.closeButton}
             onPress={handleClose}
+            activeOpacity={0.8}
           >
-            <Text style={styles.closeButtonText}>Continue to Login</Text>
+            <Text style={styles.closeButtonText}>Return to Login</Text>
           </TouchableOpacity>
         </View>
       </Animated.View>
@@ -179,14 +181,14 @@ const AccountDeletedModal = ({ visible, onClose }) => {
   );
 };
 
-const styles = {
+const styles = StyleSheet.create({
   backdrop: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
   },
   backdropTouchable: {
     flex: 1,
@@ -195,38 +197,35 @@ const styles = {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: Theme.spacing.lg,
   },
   modal: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    paddingVertical: 40,
-    paddingHorizontal: 32,
+    backgroundColor: Colors.background,
+    borderRadius: Theme.borderRadius.large,
+    paddingVertical: Theme.spacing.xxl,
+    paddingHorizontal: Theme.spacing.xl,
     alignItems: 'center',
     maxWidth: width * 0.9,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 20,
+    width: '100%',
+    ...Theme.shadow.large,
   },
   
   // Success Icon Styles
   iconContainer: {
-    marginBottom: 24,
+    marginBottom: Theme.spacing.xl,
   },
   successCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#4ECDC4',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: Colors.error,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#4ECDC4',
+    shadowColor: Colors.error,
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.3,
     shadowRadius: 16,
-    elevation: 12,
+    elevation: 10,
   },
   checkmarkContainer: {
     justifyContent: 'center',
@@ -235,77 +234,78 @@ const styles = {
   
   // Text Styles
   title: {
-    fontSize: 24,
+    fontSize: Theme.fontSize.title,
     fontWeight: '700',
-    color: '#1C1C1E',
+    color: Colors.text,
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: Theme.spacing.md,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#8E8E93',
+    fontSize: Theme.fontSize.md,
+    color: Colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 32,
+    marginBottom: Theme.spacing.xl,
     lineHeight: 22,
+    paddingHorizontal: Theme.spacing.sm,
   },
   
   // Summary Styles
   summaryContainer: {
     width: '100%',
-    marginBottom: 24,
+    backgroundColor: Colors.surfaceLight,
+    borderRadius: Theme.borderRadius.medium,
+    padding: Theme.spacing.lg,
+    marginBottom: Theme.spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   summaryItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    paddingHorizontal: 8,
+    marginBottom: Theme.spacing.md,
   },
   summaryText: {
-    fontSize: 15,
-    color: '#1C1C1E',
-    marginLeft: 12,
+    fontSize: Theme.fontSize.sm,
+    color: Colors.text,
+    marginLeft: Theme.spacing.md,
     fontWeight: '500',
+    flex: 1,
   },
   
   // Security Message
   securityMessage: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#F0FDFC',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 32,
+    backgroundColor: '#FFF5F0',
+    borderRadius: Theme.borderRadius.medium,
+    padding: Theme.spacing.lg,
+    marginBottom: Theme.spacing.xl,
     borderWidth: 1,
-    borderColor: '#B2F5EA',
+    borderColor: '#FFE6D7',
   },
   securityText: {
-    fontSize: 14,
-    color: '#1C1C1E',
-    marginLeft: 12,
+    fontSize: Theme.fontSize.sm,
+    color: Colors.textSecondary,
+    marginLeft: Theme.spacing.md,
     flex: 1,
     lineHeight: 20,
-    fontWeight: '500',
   },
   
   // Button Styles
   closeButton: {
-    backgroundColor: '#4ECDC4',
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 12,
-    minWidth: 200,
+    backgroundColor: Colors.secondary,
+    paddingVertical: Theme.spacing.md,
+    paddingHorizontal: Theme.spacing.xxl,
+    borderRadius: Theme.borderRadius.medium,
+    width: '100%',
     alignItems: 'center',
-    shadowColor: '#4ECDC4',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    ...Theme.shadow.small,
   },
   closeButtonText: {
-    fontSize: 16,
+    fontSize: Theme.fontSize.md,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: Colors.textInverse,
   },
-};
+});
 
 export default AccountDeletedModal;

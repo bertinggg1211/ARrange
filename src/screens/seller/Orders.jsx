@@ -21,6 +21,8 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import styles from './styles/Orders.style';
 import orderApi from '../../api/orderApi';
 import { getOrderStatusColors, getPaymentStatusColors } from '../../config/orderColors';
+import { sendOrderNotification } from '../../api/chatApi';
+import { sendReviewRequest } from '../../api/reviewApi';
 
 const { width, height } = Dimensions.get('window');
 
@@ -278,6 +280,9 @@ export default function Orders({ navigation }) {
           text: 'Confirm',
           onPress: async () => {
             try {
+              const order = orders.find(o => o.id === orderId);
+              
+              // Update order status
               await orderApi.updateOrderStatus(orderId, { 
                 status: 'confirmed',
                 notes: 'Order confirmed by seller'
@@ -290,6 +295,59 @@ export default function Orders({ navigation }) {
                     : order
                 )
               );
+              
+              // Send chat notification with product details
+              if (order?.customer?.id && order?.orderNumber) {
+                const firstItem = order.items?.[0];
+                
+                // Debug: Check image structure
+                console.log('🖼️ First item image structure:', {
+                  image: firstItem?.image,
+                  imageType: typeof firstItem?.image,
+                  imageKeys: firstItem?.image && typeof firstItem.image === 'object' ? Object.keys(firstItem.image) : null
+                });
+                
+                // Extract image URL properly
+                let imageUrl = null;
+                if (firstItem?.image) {
+                  if (typeof firstItem.image === 'string') {
+                    imageUrl = firstItem.image;
+                  } else if (typeof firstItem.image === 'object') {
+                    // Handle Cloudinary object
+                    imageUrl = firstItem.image.url || firstItem.image.uri || firstItem.image.path || firstItem.image;
+                  }
+                }
+                
+                console.log('🖼️ Extracted image URL:', imageUrl);
+                
+                const productData = firstItem ? {
+                  id: firstItem.id,
+                  name: firstItem.name,
+                  image: imageUrl, // Use extracted URL string
+                  price: firstItem.price,
+                  quantity: firstItem.quantity
+                } : null;
+                
+                console.log('🔔 Sending CONFIRM ORDER notification to buyer:', {
+                  buyerId: order.customer.id,
+                  orderNumber: order.orderNumber,
+                  productData: productData
+                });
+                
+                const result = await sendOrderNotification(
+                  order.customer.id,
+                  order.orderNumber,
+                  'confirmed',
+                  productData
+                );
+                
+                if (result.success) {
+                  console.log('✅ Confirm order notification sent successfully!');
+                } else {
+                  console.error('❌ Failed to send notification:', result.error);
+                }
+              }
+              
               Alert.alert('Success', 'Order confirmed successfully! Customer has been notified.');
             } catch (error) {
               console.error('❌ Error confirming order:', error);
@@ -304,6 +362,9 @@ export default function Orders({ navigation }) {
   // Start processing order
   const startProcessing = async (orderId) => {
     try {
+      const order = orders.find(o => o.id === orderId);
+      
+      // Update order status
       await orderApi.updateOrderStatus(orderId, { 
         status: 'processing',
         notes: 'Order processing started - preparing items'
@@ -316,6 +377,49 @@ export default function Orders({ navigation }) {
             : order
         )
       );
+      
+      // Send chat notification with product details
+      if (order?.customer?.id && order?.orderNumber) {
+        const firstItem = order.items?.[0];
+        
+        // Extract image URL properly
+        let imageUrl = null;
+        if (firstItem?.image) {
+          if (typeof firstItem.image === 'string') {
+            imageUrl = firstItem.image;
+          } else if (typeof firstItem.image === 'object') {
+            imageUrl = firstItem.image.url || firstItem.image.uri || firstItem.image.path || firstItem.image;
+          }
+        }
+        
+        const productData = firstItem ? {
+          id: firstItem.id,
+          name: firstItem.name,
+          image: imageUrl,
+          price: firstItem.price,
+          quantity: firstItem.quantity
+        } : null;
+        
+        console.log('🔔 Sending START PROCESSING notification to buyer:', {
+          buyerId: order.customer.id,
+          orderNumber: order.orderNumber,
+          productData: productData
+        });
+        
+        const result = await sendOrderNotification(
+          order.customer.id,
+          order.orderNumber,
+          'processing',
+          productData
+        );
+        
+        if (result.success) {
+          console.log('✅ Processing notification sent successfully!');
+        } else {
+          console.error('❌ Failed to send processing notification:', result.error);
+        }
+      }
+      
       Alert.alert('Success', 'Order is now being processed! Customer has been notified.');
     } catch (error) {
       console.error('❌ Error starting processing:', error);
@@ -340,6 +444,9 @@ export default function Orders({ navigation }) {
           text: 'Mark Delivered',
           onPress: async () => {
             try {
+              const order = orders.find(o => o.id === orderId);
+              
+              // Update order status
               await orderApi.updateOrderStatus(orderId, { 
                 status: 'delivered',
                 notes: 'Order delivered successfully'
@@ -352,7 +459,96 @@ export default function Orders({ navigation }) {
                     : order
                 )
               );
-              Alert.alert('Success', 'Order marked as delivered! Customer has been notified.');
+              
+              // Send chat notifications to buyer
+              if (order?.customer?.id && order?.orderNumber) {
+                const firstItem = order.items?.[0];
+                
+                // Extract image URL properly
+                let imageUrl = null;
+                if (firstItem?.image) {
+                  if (typeof firstItem.image === 'string') {
+                    imageUrl = firstItem.image;
+                  } else if (typeof firstItem.image === 'object') {
+                    imageUrl = firstItem.image.url || firstItem.image.uri || firstItem.image.path || firstItem.image;
+                  }
+                }
+                
+                const productData = firstItem ? {
+                  id: firstItem.id,
+                  name: firstItem.name,
+                  image: imageUrl,
+                  price: firstItem.price,
+                  quantity: firstItem.quantity
+                } : null;
+                
+                // 1. Send delivery confirmation
+                console.log('🔔 Sending DELIVERED notification to buyer:', {
+                  buyerId: order.customer.id,
+                  orderNumber: order.orderNumber,
+                  productData: productData
+                });
+                
+                const deliveryResult = await sendOrderNotification(
+                  order.customer.id,
+                  order.orderNumber,
+                  'delivered',
+                  productData
+                );
+                
+                if (deliveryResult.success) {
+                  console.log('✅ Delivery notification sent successfully!');
+                } else {
+                  console.error('❌ Failed to send delivery notification:', deliveryResult.error);
+                }
+                
+                // 2. Send PRODUCT review request (after 2 seconds)
+                setTimeout(async () => {
+                  try {
+                    console.log('⭐ Sending product review request to buyer');
+                    await sendReviewRequest(
+                      order.customer.id,
+                      order.orderNumber,
+                      'product',
+                      {
+                        id: firstItem.id,
+                        name: firstItem.name,
+                        image: imageUrl,
+                        price: firstItem.price,
+                        quantity: firstItem.quantity
+                      }
+                    );
+                    console.log('✅ Product review request sent successfully!');
+                  } catch (error) {
+                    console.error('❌ Error sending product review request:', error);
+                  }
+                }, 2000);
+                
+                // 3. Send SHOP review request (after 4 seconds)
+                setTimeout(async () => {
+                  try {
+                    console.log('⭐ Sending shop review request to buyer');
+                    // Get seller ID from order data (current user is the seller)
+                    const sellerId = order.seller?.id || order.seller_id;
+                    
+                    await sendReviewRequest(
+                      order.customer.id,
+                      order.orderNumber,
+                      'shop',
+                      {
+                        shopId: sellerId,
+                        shopName: order.seller?.shopName || order.seller?.name || 'Shop',
+                        shopLogo: order.seller?.shopLogo || order.seller?.logo || null
+                      }
+                    );
+                    console.log('✅ Shop review request sent successfully!');
+                  } catch (error) {
+                    console.error('❌ Error sending shop review request:', error);
+                  }
+                }, 4000);
+              }
+              
+              Alert.alert('Success', 'Order marked as delivered! Customer has been notified and review requests sent.');
             } catch (error) {
               console.error('❌ Error marking as delivered:', error);
               Alert.alert('Error', 'Failed to mark as delivered. Please try again.');
@@ -370,6 +566,7 @@ export default function Orders({ navigation }) {
     }
 
     try {
+      // Update order status
       await orderApi.updateOrderStatus(currentOrderDetails.id, { 
         status: 'shipped',
         trackingNumber: trackingNumber.trim(),
@@ -384,10 +581,54 @@ export default function Orders({ navigation }) {
         )
       );
       
+      // Send chat notification with product details and tracking number
+      if (currentOrderDetails?.customer?.id && currentOrderDetails?.orderNumber) {
+        const firstItem = currentOrderDetails.items?.[0];
+        
+        // Extract image URL properly
+        let imageUrl = null;
+        if (firstItem?.image) {
+          if (typeof firstItem.image === 'string') {
+            imageUrl = firstItem.image;
+          } else if (typeof firstItem.image === 'object') {
+            imageUrl = firstItem.image.url || firstItem.image.uri || firstItem.image.path || firstItem.image;
+          }
+        }
+        
+        const productData = firstItem ? {
+          id: firstItem.id,
+          name: firstItem.name,
+          image: imageUrl,
+          price: firstItem.price,
+          quantity: firstItem.quantity
+        } : null;
+        
+        console.log('🔔 Sending SHIP ORDER notification to buyer:', {
+          buyerId: currentOrderDetails.customer.id,
+          orderNumber: currentOrderDetails.orderNumber,
+          trackingNumber: trackingNumber.trim(),
+          productData: productData
+        });
+        
+        const result = await sendOrderNotification(
+          currentOrderDetails.customer.id,
+          currentOrderDetails.orderNumber,
+          'shipped',
+          productData,
+          trackingNumber.trim()
+        );
+        
+        if (result.success) {
+          console.log('✅ Shipping notification sent successfully!');
+        } else {
+          console.error('❌ Failed to send shipping notification:', result.error);
+        }
+      }
+      
       setShowTrackingModal(false);
       setTrackingNumber('');
       setCurrentOrderDetails(null);
-      Alert.alert('Success', 'Order shipped successfully! Customer has been notified.');
+      Alert.alert('Success', 'Order shipped successfully! Customer has been notified with tracking number.');
     } catch (error) {
       console.error('❌ Error shipping order:', error);
       Alert.alert('Error', 'Failed to ship order. Please try again.');
@@ -405,6 +646,8 @@ export default function Orders({ navigation }) {
           style: 'destructive',
           onPress: async () => {
             try {
+              const order = orders.find(o => o.id === orderId);
+              
               await orderApi.updateOrderStatus(orderId, { 
                 status: 'cancelled',
                 notes: 'Order cancelled by seller'
@@ -417,7 +660,8 @@ export default function Orders({ navigation }) {
                     : order
                 )
               );
-              Alert.alert('Order Cancelled', 'The order has been cancelled and customer has been notified.');
+              
+              Alert.alert('Order Cancelled', 'The order has been cancelled.');
             } catch (error) {
               console.error('❌ Error cancelling order:', error);
               Alert.alert('Error', 'Failed to cancel order. Please try again.');
@@ -440,7 +684,24 @@ export default function Orders({ navigation }) {
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Call', onPress: () => Alert.alert('Calling', `Calling ${order.customer.phone}`) },
-        { text: 'Message', onPress: () => navigation.navigate('ChatDetail', { customer: order.customer }) }
+        { 
+          text: 'Message', 
+          onPress: () => {
+            // Navigate to chat with proper chatData format
+            navigation.navigate('ChatDetail', { 
+              chatData: {
+                id: `chat_${order.customer.id}`,
+                partnerId: order.customer.id,
+                shop: {
+                  id: order.customer.id,
+                  name: order.customer.name,
+                  avatar: order.customer.avatar || null,
+                  isOnline: false
+                }
+              }
+            });
+          }
+        }
       ]
     );
   };
@@ -945,14 +1206,22 @@ export default function Orders({ navigation }) {
         />
       ) : (
         <View style={styles.emptyStateContainer}>
-          <Icon name="receipt-outline" size={64} color="rgba(255,255,255,0.3)" />
-          <Text style={styles.emptyStateTitle}>No Orders Found</Text>
+          <View style={styles.emptyStateIconContainer}>
+            <Icon name="receipt-outline" size={80} color="#FF8B47" />
+          </View>
+          <Text style={styles.emptyStateTitle}>No Orders Yet</Text>
           <Text style={styles.emptyStateSubtitle}>
             {activeTab === 'All' 
-              ? 'No orders available' 
-              : `No ${activeTab.toLowerCase()} orders found`
+              ? 'You haven\'t received any orders yet.\nOrders will appear here once customers start purchasing.' 
+              : `No ${activeTab.toLowerCase()} orders found.\nTry switching to a different tab.`
             }
           </Text>
+          <View style={styles.emptyStateTip}>
+            <Icon name="bulb-outline" size={20} color="#FFB74D" />
+            <Text style={styles.emptyStateTipText}>
+              Promote your products to get more orders!
+            </Text>
+          </View>
         </View>
       )}
 

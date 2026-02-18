@@ -9,6 +9,7 @@ import {
   Dimensions,
   ActivityIndicator,
   Modal,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Camera, useCameraDevices, useCameraPermission } from 'react-native-vision-camera';
@@ -40,7 +41,7 @@ export default function ViewAR({ route, navigation }) {
   const [modelRotation, setModelRotation] = useState(0);
   const [showPlaceholder, setShowPlaceholder] = useState(false);
   
-  // Get model URL from product data - handle both KIRI Engine and local models
+  // Get model URL from product data - handle local, TRIPO, and KIRI models
   let modelUrl = null;
   let hasModel = false;
   
@@ -51,10 +52,26 @@ export default function ViewAR({ route, navigation }) {
     modelUrl = getLocalModelPath('TEST4');
     hasModel = true;
   } else {
-    // Use KIRI Engine model
-    console.log('🎯 ViewAR: Using KIRI Engine model');
-    modelUrl = product?.arScanData?.glbUrl || product?.arScanData?.cloudinaryUrl || product?.arScanData?.modelUrl;
-    hasModel = !!modelUrl;
+    // PRIORITY 1: Check arModel field directly (TRIPO stores here)
+    if (product?.arModel) {
+      console.log('✅ ViewAR: Found arModel directly (TRIPO):', product.arModel);
+      modelUrl = product.arModel;
+      hasModel = true;
+    } 
+    // PRIORITY 2: Check arScanData (KIRI Engine or fallback)
+    else {
+      console.log('🎯 ViewAR: Checking arScanData (KIRI Engine)');
+      modelUrl = product?.arScanData?.glbUrl || 
+                 product?.arScanData?.cloudinaryUrl || 
+                 product?.arScanData?.modelUrl;
+      hasModel = !!modelUrl;
+      
+      if (hasModel) {
+        console.log('✅ ViewAR: Found model in arScanData:', modelUrl);
+      } else {
+        console.log('⚠️ ViewAR: No model URL found in arModel or arScanData');
+      }
+    }
   }
   
   const finalModelUrl = modelUrl;
@@ -143,14 +160,26 @@ export default function ViewAR({ route, navigation }) {
   }, [hasPermission, requestPermission]);
 
   // Handle back navigation
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
+    console.log('🔙 ViewAR: Back button pressed');
     if (navigation.canGoBack()) {
       navigation.goBack();
     } else {
       // Fallback to specific navigation if goBack fails
       navigation.navigate('ProductDetail', { product });
     }
-  };
+  }, [navigation, product]);
+
+  // Handle Android hardware back button
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      console.log('🔙 ViewAR: Hardware back button pressed');
+      handleBack();
+      return true; // Prevent default behavior
+    });
+
+    return () => backHandler.remove();
+  }, [handleBack]);
 
   // Placeholder functions for future 3D model
   const resetModelTransform = useCallback(() => {
@@ -160,8 +189,6 @@ export default function ViewAR({ route, navigation }) {
   // Placeholder for future 3D model functionality
 
   // Placeholder for future WebView message handling
-
-  // Hardware back button handled by React Navigation automatically
 
   // Check for camera errors
   if (cameraError) {
@@ -223,34 +250,62 @@ export default function ViewAR({ route, navigation }) {
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle="light-content" backgroundColor="#000" translucent={false} />
       
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) + 15 }]}>
+      {/* Header - CRITICAL: Must be above WebView with high z-index */}
+      <View style={[styles.header, { 
+        paddingTop: Math.max(insets.top, 10) + 5,
+        zIndex: 100,  // Higher than WebView (zIndex: 10)
+        elevation: 100, // For Android
+        position: 'relative' // Ensure z-index works
+      }]}>
         <View style={styles.headerContent}>
-          <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+          <TouchableOpacity 
+            style={styles.backButton} 
+            onPress={handleBack}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} // Larger touch area
+          >
             <Icon name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           
           <View style={styles.headerTitle}>
             <Text style={styles.headerTitleText}>View AR</Text>
-            <Text style={styles.headerSubtitle}>{product?.name || 'Product'}</Text>
+            <Text style={styles.headerSubtitle} numberOfLines={1} ellipsizeMode="tail">
+              {product?.name || 'Product'}
+            </Text>
           </View>
           
-          <TouchableOpacity style={styles.resetButton} onPress={resetModelTransform}>
+          <TouchableOpacity 
+            style={styles.resetButton} 
+            onPress={resetModelTransform}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
             <Icon name="refresh" size={20} color="#FFFFFF" />
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.helpButton} onPress={() => setShowInstructions(true)}>
+          <TouchableOpacity 
+            style={styles.helpButton} 
+            onPress={() => setShowInstructions(true)}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
             <Icon name="help-circle-outline" size={20} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
         
         {finalHasModel ? (
-          <View style={styles.modelIndicator}>
+          <View style={[styles.modelIndicator, { 
+            zIndex: 100, // Ensure it's above WebView
+            elevation: 100 
+          }]}>
             <Icon name="cube" size={16} color="#4CAF50" />
             <Text style={styles.modelText}>3D Model Ready</Text>
           </View>
         ) : (
-          <View style={styles.placeholderIndicator}>
+          <View style={[styles.placeholderIndicator, { 
+            zIndex: 100, 
+            elevation: 100 
+          }]}>
             <Text style={styles.placeholderText}>3D Model Coming Soon</Text>
           </View>
         )}

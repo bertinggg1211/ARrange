@@ -2,10 +2,23 @@ import { StyleSheet, Dimensions } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
+// App theme colors
+const Colors = {
+  primary: '#1A1A1A',
+  secondary: '#FF8B47',        // Warm Orange
+  secondaryLight: '#FFB380',   // Light Orange
+  background: '#FFFFFF',
+  surface: '#FAFAFA',
+  text: '#1A1A1A',
+  textSecondary: '#666666',
+  success: '#4CAF50',
+  shadow: 'rgba(0, 0, 0, 0.08)',
+};
+
 export default StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: Colors.surface, // Light background instead of black
   },
   
   // Camera Styles
@@ -59,9 +72,16 @@ export default StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: Colors.background, // White background
     paddingHorizontal: 20,
-    paddingBottom: 15,
+    paddingBottom: 8,
+    borderBottomWidth: 2,
+    borderBottomColor: Colors.secondary, // Orange border
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
   },
   headerContent: {
     flexDirection: 'row',
@@ -71,46 +91,63 @@ export default StyleSheet.create({
   headerTitle: {
     flex: 1,
     alignItems: 'center',
+    paddingHorizontal: 8,
   },
   headerTitleText: {
-    color: '#FFFFFF',
-    fontSize: 18,
+    color: Colors.text, // Dark text
+    fontSize: 16,
     fontWeight: 'bold',
   },
   headerSubtitle: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    opacity: 0.8,
-    marginTop: 2,
+    color: Colors.textSecondary, // Gray text
+    fontSize: 12,
+    marginTop: 0,
+    maxWidth: '100%',
+    textAlign: 'center',
   },
   
   // Button Styles
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.secondary, // Orange button
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   resetButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.secondaryLight, // Light orange
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 10,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   helpButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.secondaryLight, // Light orange
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 10,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   
   // Placeholder Indicator
@@ -119,13 +156,18 @@ export default StyleSheet.create({
     marginTop: 10,
   },
   placeholderText: {
-    color: '#FFFFFF',
+    color: Colors.background, // White text
     fontSize: 12,
-    fontWeight: '500',
-    backgroundColor: 'rgba(255, 139, 71, 0.8)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 15,
+    fontWeight: '600',
+    backgroundColor: Colors.secondary, // Orange background
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   
   // Camera Container
@@ -211,10 +253,10 @@ export default StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 40,
-    backgroundColor: '#000000',
+    backgroundColor: Colors.surface, // Light background
   },
   errorTitle: {
-    color: '#FFFFFF',
+    color: Colors.text, // Dark text
     fontSize: 24,
     fontWeight: 'bold',
     marginTop: 20,
@@ -222,20 +264,25 @@ export default StyleSheet.create({
     textAlign: 'center',
   },
   errorMessage: {
-    color: '#CCCCCC',
+    color: Colors.textSecondary, // Gray text
     fontSize: 16,
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 30,
   },
   retryButton: {
-    backgroundColor: '#FF8B47',
+    backgroundColor: Colors.secondary, // Orange button
     paddingHorizontal: 30,
     paddingVertical: 15,
     borderRadius: 25,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 6,
   },
   retryButtonText: {
-    color: '#FFFFFF',
+    color: Colors.background, // White text
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -264,13 +311,13 @@ export default StyleSheet.create({
   instructionsTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333333',
+    color: Colors.text,
   },
   closeButton: {
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: Colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -284,19 +331,67 @@ export default StyleSheet.create({
   },
   instructionText: {
     fontSize: 16,
-    color: '#333333',
+    color: Colors.textSecondary,
     marginLeft: 15,
     flex: 1,
   },
   gotItButton: {
-    backgroundColor: '#FF8B47',
+    backgroundColor: Colors.secondary, // Orange button
     paddingVertical: 15,
     borderRadius: 25,
     alignItems: 'center',
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 6,
   },
   gotItButtonText: {
-    color: '#FFFFFF',
+    color: Colors.background, // White text
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  
+  // Model Indicator (for when AR is ready)
+  modelIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.success, // Green background for ready state
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginTop: 10,
+    alignSelf: 'center',
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  modelText: {
+    color: Colors.background, // White text
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  
+  // Model Controls (zoom, rotate buttons)
+  modelControls: {
+    flexDirection: 'row',
+    gap: 15,
+  },
+  controlButton: {
+    backgroundColor: Colors.secondary, // Orange button
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  
+  // WebView for 3D model
+  modelWebView: {
+    flex: 1,
+    backgroundColor: 'transparent',
   },
 });

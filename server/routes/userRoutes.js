@@ -206,7 +206,16 @@ router.put('/profile', upload.fields([{ name: 'avatar', maxCount: 1 }]), async (
 
 // Helper function to extract Cloudinary public ID from URL
 const extractCloudinaryPublicId = (url) => {
-  if (!url || !url.includes('cloudinary.com')) return null;
+  // Check if url is a valid string
+  if (!url || typeof url !== 'string') {
+    console.log('⚠️ Invalid URL (not a string):', typeof url, url);
+    return null;
+  }
+  
+  if (!url.includes('cloudinary.com')) {
+    console.log('⚠️ URL does not contain cloudinary.com:', url);
+    return null;
+  }
   
   try {
     const urlParts = url.split('/');
@@ -231,6 +240,14 @@ const extractCloudinaryPublicId = (url) => {
 // Comprehensive delete user account function
 router.delete('/delete-account', async (req, res) => {
   try {
+    if (!req.user || !req.user.id) {
+      console.error('❌ No user found in request');
+      return res.status(401).json({ 
+        success: false,
+        message: 'Authentication required' 
+      });
+    }
+    
     const userId = req.user.id;
     console.log(`🗑️ Starting comprehensive account deletion for user: ${userId}`);
     
@@ -419,6 +436,30 @@ router.delete('/delete-account', async (req, res) => {
       console.log('⚠️ Notifications table not found, skipping...');
     }
     
+    // Delete user's likes (skip if table doesn't exist)
+    try {
+      const { error: likesError } = await supabase
+        .from('likes')
+        .delete()
+        .eq('user_id', userId);
+      
+      if (likesError) {
+        // Check for table not found errors
+        if (likesError.code === 'PGRST205' || 
+            likesError.message.includes('Could not find the table') ||
+            likesError.message.includes('relation') || 
+            likesError.message.includes('does not exist')) {
+          console.log('⚠️ Likes table not found, skipping...');
+        } else {
+          console.error('❌ Error deleting likes:', likesError);
+        }
+      } else {
+        console.log('✅ Deleted likes successfully');
+      }
+    } catch (error) {
+      console.log('⚠️ Likes table not found, skipping...');
+    }
+    
     // Delete AR scans if user is a seller (skip if table doesn't exist)
     if (userData.role === 'seller') {
       try {
@@ -483,9 +524,14 @@ router.delete('/delete-account', async (req, res) => {
     
   } catch (error) {
     console.error('❌ Error during comprehensive account deletion:', error);
+    console.error('❌ Error details:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code
+    });
     res.status(500).json({ 
       success: false,
-      message: 'Failed to delete account completely. Some data may remain.' 
+      message: `Failed to delete account completely. Some data may remain. Error: ${error.message}` 
     });
   }
 });

@@ -21,7 +21,10 @@ const uploadRoutes = require("./routes/uploadRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const likesRoutes = require("./routes/likesRoutes");
 const arWebhookKiri = require('./routes/arWebhookKiri');
+const arWebhookTripo = require('./routes/arWebhookTripo');
+const tripoRoutes = require('./routes/tripoRoutes');
 const adminRoutes = require("./routes/adminRoutes");
+const reviewRoutes = require("./routes/reviewRoutes");
 
 const app = express();
 const server = http.createServer(app);
@@ -88,6 +91,10 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Webhook endpoint must come BEFORE json parser for raw body support inside its router
 app.use('/api/ar/webhook', arWebhookKiri);
 
+// TRIPO 3D AI routes
+app.use('/api/ar/tripo', tripoRoutes);
+app.use('/api/ar/tripo', arWebhookTripo);
+
 // Routes
 app.use("/api/chat", chatRoutes);
 app.use("/api/auth", authRoutes);
@@ -100,6 +107,7 @@ app.use("/api/upload", uploadRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/likes", likesRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/reviews", reviewRoutes);
 // Product Routes - Choose one:
 // Option 1: Local file storage (current)
 // app.use("/api/seller/products", productRoutes);  // For seller product management
@@ -191,7 +199,6 @@ async function initializeCloudinary() {
     
     // Test Cloudinary connection
     const result = await cloudinary.api.ping();
-    console.log('✅ Cloudinary Connected Successfully');
     console.log('🎉 CONNECTED KA NA DIN SA CLOUD BOY! 🎉');
   } catch (error) {
     console.error('❌ Cloudinary connection failed:', error.message);
@@ -211,8 +218,6 @@ const { pingKiri } = require('./services/kiriClient');
     const ok = await pingKiri();
     if (ok) {
       console.log('🎉 CONNECTED KA NA DIN SA AR BOY! 🎉');
-    } else {
-      console.log('⚠️  KIRI connectivity not confirmed yet');
     }
   } catch (e) {
     console.log('⚠️  KIRI connectivity check failed:', e.message);

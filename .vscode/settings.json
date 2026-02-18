@@ -1,0 +1,8 @@
+{
+    "atlascode.jira.enabled": true,
+    "atlascode.enableHttpsTunnel": false,
+    "atlascode.enableCurlLogging": true,
+    "atlascode.jira.showCreateIssueProblems": true,
+    "atlascode.enableCharles": true,
+    "atlascode.bitbucket.enabled": false
+}

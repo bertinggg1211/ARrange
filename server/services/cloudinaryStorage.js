@@ -54,15 +54,17 @@ const arModelStorage = new CloudinaryStorage({
     const productId = req.params.productId || `temp_${Date.now()}`;
     const fileExtension = file.originalname.split('.').pop().toLowerCase();
     const isKiriModel = req.body.source === 'kiri' || req.body.enhanced === 'true';
+    const isTripoModel = req.body.source === 'tripo';
+    const isEnhancedModel = isKiriModel || isTripoModel;
     
     return {
-      folder: isKiriModel ? `products/ar-models/kiri/${productId}` : `products/ar-models/${productId}`,
-      public_id: isKiriModel ? `enhanced_model_${Date.now()}` : `model_${Date.now()}`,
+      folder: isTripoModel ? `products/ar-models/tripo/${productId}` : (isKiriModel ? `products/ar-models/kiri/${productId}` : `products/ar-models/${productId}`),
+      public_id: isEnhancedModel ? `enhanced_model_${Date.now()}` : `model_${Date.now()}`,
       resource_type: 'raw', // For non-image files like GLB, GLTF
       format: fileExtension, // Keep original format (glb, gltf, etc.)
-      tags: isKiriModel ? ['kiri-engine', 'enhanced-quality', productId] : ['ar-model', productId],
+      tags: isTripoModel ? ['tripo-ai', 'enhanced-quality', productId] : (isKiriModel ? ['kiri-engine', 'enhanced-quality', productId] : ['ar-model', productId]),
       // 🎯 Enhanced settings for high-quality models
-      quality_analysis: isKiriModel,
+      quality_analysis: isEnhancedModel,
       access_mode: 'public'
     };
   },
@@ -252,22 +254,24 @@ const uploadImage = async (file, productId, imageType = 'gallery') => {
 // 🎯 Enhanced AR model upload with quality optimization
 const uploadARModel = async (file, productId, options = {}) => {
   try {
-    const { isKiriModel = false, modelType = 'standard' } = options;
-    const publicId = generatePublicId(productId, isKiriModel ? 'ar-models/kiri' : 'ar-models');
+    const { isKiriModel = false, isTripoModel = false, modelType = 'standard' } = options;
+    const isEnhancedModel = isKiriModel || isTripoModel;
+    const modelSource = isTripoModel ? 'tripo' : (isKiriModel ? 'kiri' : 'standard');
+    const publicId = generatePublicId(productId, isTripoModel ? 'ar-models/tripo' : (isKiriModel ? 'ar-models/kiri' : 'ar-models'));
     
     const uploadOptions = {
       public_id: publicId,
-      folder: isKiriModel ? `products/ar-models/kiri/${productId}` : `products/ar-models/${productId}`,
+      folder: isTripoModel ? `products/ar-models/tripo/${productId}` : (isKiriModel ? `products/ar-models/kiri/${productId}` : `products/ar-models/${productId}`),
       resource_type: 'raw',
-      tags: isKiriModel ? [productId, 'kiri-engine', 'enhanced-quality'] : [productId, 'ar-model'],
+      tags: isTripoModel ? [productId, 'tripo-ai', 'enhanced-quality'] : (isKiriModel ? [productId, 'kiri-engine', 'enhanced-quality'] : [productId, 'ar-model']),
     };
 
-    // 🎯 Enhanced settings for KIRI Engine models
-    if (isKiriModel) {
+    // 🎯 Enhanced settings for AI-generated models
+    if (isEnhancedModel) {
       uploadOptions.quality_analysis = true;
       uploadOptions.access_mode = 'public';
       uploadOptions.metadata = {
-        source: 'kiri-engine',
+        source: isTripoModel ? 'tripo-ai' : 'kiri-engine',
         quality: 'enhanced',
         generated_at: new Date().toISOString()
       };
@@ -275,7 +279,7 @@ const uploadARModel = async (file, productId, options = {}) => {
 
     const result = await cloudinary.uploader.upload(file.path || file.buffer, uploadOptions);
 
-    console.log(`✅ ${isKiriModel ? 'Enhanced KIRI' : 'Standard'} AR model uploaded:`, result.secure_url);
+    console.log(`✅ ${isTripoModel ? 'TRIPO AI' : (isKiriModel ? 'Enhanced KIRI' : 'Standard')} AR model uploaded:`, result.secure_url);
     console.log(`📊 File size: ${(result.bytes / 1024 / 1024).toFixed(2)} MB`);
 
     return {
@@ -285,8 +289,8 @@ const uploadARModel = async (file, productId, options = {}) => {
       format: result.format,
       bytes: result.bytes,
       fileSize: `${(result.bytes / 1024 / 1024).toFixed(2)} MB`,
-      isEnhanced: isKiriModel,
-      source: isKiriModel ? 'kiri-engine' : 'standard'
+      isEnhanced: isEnhancedModel,
+      source: modelSource
     };
   } catch (error) {
     console.error('Cloudinary AR model upload error:', error);

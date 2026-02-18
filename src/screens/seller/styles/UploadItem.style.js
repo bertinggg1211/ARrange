@@ -1,6 +1,11 @@
 import { StyleSheet, Dimensions, Platform } from 'react-native';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+
+// Responsive sizing helper
+const isTablet = width >= 768;
+const scale = (size) => (width / 375) * size;
+const moderateScale = (size, factor = 0.5) => size + (scale(size) - size) * factor;
 
 export default StyleSheet.create({
   container: {
@@ -1833,6 +1838,34 @@ export default StyleSheet.create({
     fontWeight: '600',
   },
 
+  // Auto-Fill Button Styles
+  sectionHeaderWithButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  autoFillButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#10B981',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    elevation: 3,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  autoFillButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'Roboto',
+  },
+
   // Modern Submit Section
   submitSection: {
     paddingHorizontal: 16,
@@ -2239,12 +2272,20 @@ export default StyleSheet.create({
     alignItems: 'center',
     zIndex: 10000,
   },
+  successScrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
   successContainer: {
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
-    padding: 32,
-    margin: 20,
-    maxWidth: width * 0.9,
+    padding: isTablet ? 40 : 24,
+    margin: 16,
+    maxWidth: isTablet ? width * 0.7 : width * 0.92,
+    maxHeight: height * 0.85,
+    width: '100%',
     alignItems: 'center',
     elevation: 20,
     shadowColor: '#10B981',
@@ -2260,65 +2301,72 @@ export default StyleSheet.create({
     marginBottom: 16,
   },
   successTitle: {
-    fontSize: 28,
+    fontSize: moderateScale(isTablet ? 32 : 28),
     fontWeight: '800',
     color: '#1F2937',
     marginBottom: 8,
     textAlign: 'center',
+    lineHeight: moderateScale(isTablet ? 40 : 36),
   },
   successSubtitle: {
-    fontSize: 16,
+    fontSize: moderateScale(isTablet ? 18 : 16),
     color: '#6B7280',
     textAlign: 'center',
-    lineHeight: 24,
-    maxWidth: 280,
+    lineHeight: moderateScale(isTablet ? 26 : 24),
+    maxWidth: isTablet ? 400 : 300,
   },
   productSummary: {
     width: '100%',
     marginBottom: 28,
   },
   summaryTitle: {
-    fontSize: 18,
+    fontSize: moderateScale(isTablet ? 22 : 18),
     fontWeight: '700',
     color: '#374151',
     marginBottom: 16,
     textAlign: 'center',
+    lineHeight: moderateScale(isTablet ? 28 : 24),
   },
   summaryCard: {
     flexDirection: 'row',
     backgroundColor: '#F9FAFB',
     borderRadius: 16,
-    padding: 16,
+    padding: isTablet ? 24 : 20,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E5E7EB',
+    minHeight: isTablet ? 140 : 120,
   },
   summaryImage: {
-    width: 60,
-    height: 60,
+    width: isTablet ? 100 : 80,
+    height: isTablet ? 100 : 80,
     borderRadius: 12,
-    marginRight: 16,
+    marginRight: isTablet ? 20 : 16,
     backgroundColor: '#E5E7EB',
   },
   summaryDetails: {
     flex: 1,
+    justifyContent: 'center',
   },
   summaryProductName: {
-    fontSize: 16,
+    fontSize: moderateScale(isTablet ? 20 : 17),
     fontWeight: '700',
     color: '#1F2937',
-    marginBottom: 4,
+    marginBottom: 8,
+    lineHeight: moderateScale(isTablet ? 26 : 24),
   },
   summaryProductPrice: {
-    fontSize: 18,
+    fontSize: moderateScale(isTablet ? 24 : 20),
     fontWeight: '800',
     color: '#10B981',
-    marginBottom: 2,
+    marginBottom: 6,
+    lineHeight: moderateScale(isTablet ? 32 : 28),
   },
   summaryProductCategory: {
-    fontSize: 14,
+    fontSize: moderateScale(isTablet ? 16 : 14),
     color: '#6B7280',
     fontStyle: 'italic',
+    lineHeight: moderateScale(isTablet ? 22 : 20),
   },
   successActions: {
     width: '100%',
@@ -2457,5 +2505,45 @@ export default StyleSheet.create({
   modelDescription: {
     fontSize: 14,
     color: '#6B7280',
+  },
+  
+  // Lightweight AR Save Loading Modal
+  arSaveOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999,
+  },
+  arSaveModal: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    minWidth: 250,
+  },
+  arSaveSpinner: {
+    marginBottom: 16,
+  },
+  arSaveText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  arSaveSubtext: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
   },
 });

@@ -67,6 +67,11 @@ const getCurrentConfig = () => {
 // Export configuration
 export const CONFIG = getCurrentConfig();
 
+// Supabase Configuration
+// NOTE: These are PUBLIC keys that are safe to include in client-side code
+export const SUPABASE_URL = 'https://uqabqigsgrmtylcgheqg.supabase.co';
+export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxYWJxaWdzZ3JtdHlsY2doZXFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk4Mzc1MDIsImV4cCI6MjA3NTQxMzUwMn0.sVS_RnQ5udaZkIyZskHq2tGrAeh693RMuaDl2c6jjvo';
+
 // Export individual values for convenience
 export const { 
   API_BASE_URL, 

@@ -14,11 +14,17 @@ export default StyleSheet.create({
     position: 'absolute',
     top: 20,
     left: 20,
-    backgroundColor: '#493d8a',
+    backgroundColor: '#FF8B47',  // Changed to app's warm orange accent color
     width: 60,
     height: 60,
     borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
+    // Add subtle shadow for depth
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
 });

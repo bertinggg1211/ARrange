@@ -15,6 +15,7 @@ import { Camera, useCameraDevices, useCameraPermission } from 'react-native-visi
 import Icon from 'react-native-vector-icons/Ionicons';
 import { WebView } from 'react-native-webview';
 import { PanGestureHandler, PinchGestureHandler, State, GestureHandlerRootView } from 'react-native-gesture-handler';
+import RNFS from 'react-native-fs';
 import { getLocalModelPath } from '../../utils/modelLoader';
 import styles from './styles/TryAR.style';
 
@@ -24,6 +25,7 @@ export default function TryAR({ navigation }) {
   console.log('🎯 TryAR screen loaded with CustomCamera approach');
   
   const cameraRef = useRef(null);
+  const webViewRef = useRef(null);
   const isMountedRef = useRef(true);
   const insets = useSafeAreaInsets();
   
@@ -141,10 +143,111 @@ export default function TryAR({ navigation }) {
   }, [navigation]);
 
   // Get the 3D model path
-  const modelPath = getLocalModelPath();
+  const [modelPath, setModelPath] = useState(null);
+  
+  useEffect(() => {
+    const loadModel = async () => {
+      // Force reload to get the latest GLB file
+      const path = await getLocalModelPath(true);
+      console.log('🎯 TryAR: Model path being used (first 100 chars):', path.substring(0, 100));
+      console.log('🎯 TryAR: Model data URL length:', path.length);
+      setModelPath(path);
+    };
+    loadModel();
+  }, []);
 
+  // State for base64 model data
+  const [modelData, setModelData] = useState(null);
+  
+  // Load model as base64 when component mounts
+  useEffect(() => {
+    const loadModelData = async () => {
+      try {
+        console.log('📦 Loading GLB file as base64 for WebView...');
+        const base64 = await RNFS.readFileAssets('TEST1.glb', 'base64');
+        console.log('✅ Base64 loaded, size:', Math.round(base64.length / 1024 / 1024 * 10) / 10, 'MB');
+        console.log('✅ Setting modelData state - this will trigger WebView render');
+        setModelData(base64);
+      } catch (error) {
+        console.error('❌ Error loading model data:', error);
+        // Fallback to a sample model URL
+        console.log('⚠️ Using fallback - setting modelData to "fallback"');
+        setModelData('fallback');
+      }
+    };
+    loadModelData();
+  }, []);
+  
+  // Debug when modelData changes
+  useEffect(() => {
+    if (modelData) {
+      console.log('🎨 modelData state updated, length:', modelData === 'fallback' ? 'fallback' : modelData.length);
+    }
+  }, [modelData]);
+  
+  // Function to send model data to WebView in chunks
+  const sendModelChunks = useCallback(() => {
+    if (!modelData || !webViewRef.current) {
+      console.log('⚠️ Cannot send chunks - modelData or webViewRef missing');
+      return;
+    }
+    
+    console.log('📤 Starting to send model chunks to WebView...');
+    
+    const chunkSize = 500000; // 500KB chunks (smaller for reliability)
+    const totalChunks = Math.ceil(modelData.length / chunkSize);
+    
+    console.log('📤 Total chunks to send:', totalChunks);
+    
+    // Send chunks one by one with a small delay
+    let chunkIndex = 0;
+    const sendNextChunk = () => {
+      if (chunkIndex < totalChunks) {
+        const start = chunkIndex * chunkSize;
+        const end = Math.min(start + chunkSize, modelData.length);
+        const chunk = modelData.substring(start, end);
+        
+        const message = JSON.stringify({
+          type: 'model_chunk',
+          chunk: chunk,
+          index: chunkIndex + 1,
+          total: totalChunks
+        });
+        
+        webViewRef.current.postMessage(message);
+        console.log(`📤 Sent chunk ${chunkIndex + 1}/${totalChunks}`);
+        
+        chunkIndex++;
+        setTimeout(sendNextChunk, 50); // 50ms delay between chunks
+      } else {
+        console.log('✅ All chunks sent!');
+      }
+    };
+    
+    sendNextChunk();
+  }, [modelData]);
+  
   // Memoize the WebView HTML to prevent infinite re-renders
   const webViewHTML = useMemo(() => {
+    console.log('🎨 useMemo triggered - modelData:', modelData ? (modelData === 'fallback' ? 'fallback' : `${modelData.length} chars`) : 'null');
+    
+    if (!modelData) {
+      console.log('⚠️ No modelData - showing loading screen');
+      return `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"></head>
+        <body style="margin:0; display:flex; align-items:center; justify-content:center; background:transparent;">
+          <div style="color:white; font-size:18px;">Loading model...</div>
+        </body>
+        </html>
+      `;
+    }
+    
+    console.log('🧩 WebView HTML: Using postMessage to send base64 data');
+    
+    // Don't embed the base64 in HTML - it's too large
+    // Instead, we'll send it via postMessage after the WebView loads
     return `
       <!DOCTYPE html>
       <html>
@@ -159,49 +262,107 @@ export default function TryAR({ navigation }) {
             background: transparent; 
             overflow: hidden;
             touch-action: none;
-            /* Performance optimizations */
-            will-change: transform;
           }
           model-viewer { 
             width: 100vw; 
             height: 100vh; 
             background: transparent;
             touch-action: none;
-            /* Performance optimizations for 60fps */
-            will-change: transform;
-            /* GPU acceleration */
-            -webkit-backface-visibility: hidden;
-            backface-visibility: hidden;
-            /* Smooth rendering */
-            image-rendering: optimizeSpeed;
-            image-rendering: -webkit-optimize-contrast;
+          }
+          #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 18px;
+            z-index: 1000;
+            background: rgba(0,0,0,0.7);
+            padding: 20px;
+            border-radius: 10px;
           }
         </style>
       </head>
       <body>
+        <div id="loading">Waiting for model data...</div>
         <model-viewer 
-          src="${modelPath}" 
+          id="viewer"
           auto-rotate 
           touch-action="none"
           style="width: 100vw; height: 100vh; touch-action: none;"
-          onload="window.ReactNativeWebView.postMessage('modelLoaded')"
-          onerror="window.ReactNativeWebView.postMessage('modelError')"
-          /* Performance attributes for 60fps */
           camera-orbit="auto"
           field-of-view="30deg"
           min-camera-orbit="auto auto 2m"
           max-camera-orbit="auto auto 10m"
-          /* Optimize for performance */
           shadow-intensity="0.5"
           shadow-softness="0.3"
           exposure="1.0"
           tone-mapping="neutral"
         >
         </model-viewer>
+        <script>
+          console.log('WebView: JavaScript loaded');
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'webview_ready',
+            message: 'WebView is ready to receive model data'
+          }));
+          
+          const modelViewer = document.getElementById('viewer');
+          const loading = document.getElementById('loading');
+          let base64Data = null;
+          
+          // Listen for base64 data from React Native
+          document.addEventListener('message', function(event) {
+            try {
+              const data = JSON.parse(event.data);
+              console.log('WebView: Received message type:', data.type);
+              
+              if (data.type === 'model_chunk') {
+                if (!base64Data) base64Data = '';
+                base64Data += data.chunk;
+                loading.textContent = 'Loading... ' + data.index + '/' + data.total;
+                console.log('WebView: Received chunk', data.index, '/', data.total);
+                
+                // If this is the last chunk, create the model
+                if (data.index === data.total) {
+                  console.log('WebView: All chunks received, creating model...');
+                  loading.textContent = 'Creating 3D model...';
+                  
+                  const dataUrl = 'data:model/gltf-binary;base64,' + base64Data;
+                  console.log('WebView: Data URL length:', dataUrl.length);
+                  
+                  modelViewer.src = dataUrl;
+                  console.log('WebView: Model src set');
+                }
+              }
+            } catch (error) {
+              console.error('WebView: Error processing message:', error);
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'error',
+                message: error.message
+              }));
+            }
+          });
+          
+          modelViewer.addEventListener('load', () => {
+            console.log('WebView: Model loaded successfully!');
+            loading.style.display = 'none';
+            window.ReactNativeWebView.postMessage('modelLoaded');
+          });
+          
+          modelViewer.addEventListener('error', (event) => {
+            console.error('WebView: Model error:', event);
+            loading.textContent = 'Failed to load model';
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'modelError',
+              message: 'Failed to load model'
+            }));
+          });
+        </script>
       </body>
       </html>
     `;
-  }, [modelPath]);
+  }, [modelData]);
 
   const handleBack = () => {
     // Navigate to the buyer's Home screen via BuyerTabs
@@ -442,8 +603,9 @@ export default function TryAR({ navigation }) {
         </View>
 
         {/* 3D Model Viewer with Gesture Controls */}
-        {modelPath && (
+        {modelData && (
           <View style={styles.modelContainer}>
+            {console.log('🎨 Rendering WebView container - modelData exists:', !!modelData)}
             <GestureHandlerRootView style={{ flex: 1 }}>
               <PinchGestureHandler
                 onGestureEvent={onPinchGestureEvent}
@@ -471,27 +633,57 @@ export default function TryAR({ navigation }) {
                     ]
                   }]}>
                     <WebView
-                      source={{ html: webViewHTML }}
+                      source={{ html: webViewHTML, baseUrl: 'file:///' }}
                       style={styles.modelViewer}
                       javaScriptEnabled={true}
                       domStorageEnabled={true}
                       startInLoadingState={true}
-                      // Performance optimizations for 60fps
+                      // Allow file access for local GLB files
+                      originWhitelist={['*']}
+                      allowFileAccess={true}
+                      allowFileAccessFromFileURLs={true}
+                      allowUniversalAccessFromFileURLs={true}
+                      // Critical for large files - increase memory
+                      setSupportMultipleWindows={false}
+                      // Performance optimizations
                       androidLayerType="hardware"
                       androidHardwareAccelerationDisabled={false}
-                      androidRenderInWebView={true}
                       mixedContentMode="compatibility"
                       allowsInlineMediaPlayback={true}
                       mediaPlaybackRequiresUserAction={false}
-                      // Reduce memory usage
-                      cacheEnabled={true}
-                      cacheMode="LOAD_CACHE_ELSE_NETWORK"
+                      // Cache settings
+                      cacheEnabled={false}
+                      incognito={true}
                       onMessage={(event) => {
-                        if (event.nativeEvent.data === 'modelLoaded') {
+                        const data = event.nativeEvent.data;
+                        console.log('📨 TryAR: WebView message:', data);
+                        
+                        if (data === 'modelLoaded') {
                           handleModelLoad();
-                        } else if (event.nativeEvent.data === 'modelError') {
-                          handleModelError('Model loading failed');
+                        } else {
+                          try {
+                            const parsed = JSON.parse(data);
+                            if (parsed.type === 'modelError') {
+                              console.error('❌ Model error details:', parsed);
+                              handleModelError(`Model loading failed: ${parsed.message}`);
+                            } else if (parsed.type === 'webview_ready') {
+                              console.log('✅ WebView is ready! Sending model chunks...');
+                              sendModelChunks();
+                            } else if (parsed.type === 'error') {
+                              console.error('❌ WebView error:', parsed.message);
+                            } else if (parsed.type === 'debug') {
+                              console.log('🐛 WebView debug:', parsed.message);
+                            }
+                          } catch (e) {
+                            // Not JSON, might be old format
+                            if (data === 'modelError') {
+                              handleModelError('Model loading failed');
+                            }
+                          }
                         }
+                      }}
+                      ref={(ref) => {
+                        webViewRef.current = ref;
                       }}
                       renderLoading={() => (
                         <View style={styles.modelLoadingContainer}>

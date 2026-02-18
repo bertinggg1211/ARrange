@@ -1,13 +1,53 @@
 // Model loader utility for GLB files
 import { Platform } from 'react-native';
+import RNFS from 'react-native-fs';
 
-// Import the base64 encoded TEST3.glb file (changed from TEST2.glb)
-import TEST3_GLB_DATA_URL from '../data/TEST3_GLB_BASE64.js';
+// For WebView to load local GLB files, we need to write to a temporary location
+// Large base64 strings cause WebView crashes, so we use file:// URLs instead
 
-// Get the local TEST3.glb model as base64 data URL
-export const getLocalModelPath = () => {
-  // Return the base64 data URL for the local TEST3.glb file
-  return TEST3_GLB_DATA_URL;
+// Get the local model path by copying to cache directory
+export const getLocalModelPath = async (forceReload = false) => {
+  if (Platform.OS === 'android') {
+    try {
+      // Use cache directory for temporary file access
+      const tempPath = `${RNFS.CachesDirectoryPath}/temp_model.glb`;
+      
+      console.log('📦 Copying GLB from Android assets to cache...');
+      
+      // Check if we need to copy
+      const exists = await RNFS.exists(tempPath);
+      
+      if (!exists || forceReload) {
+        // Copy from assets to cache directory
+        await RNFS.copyFileAssets('TEST1.glb', tempPath);
+        
+        const stats = await RNFS.stat(tempPath);
+        console.log('✅ GLB file copied to cache, size:', Math.round(stats.size / 1024 / 1024 * 100) / 100, 'MB');
+      } else {
+        console.log('✅ Using cached GLB file');
+      }
+      
+      // Return file:// URL - WebView should be able to access cache directory
+      const fileUrl = `file://${tempPath}`;
+      console.log('✅ Model URL:', fileUrl);
+      
+      return fileUrl;
+    } catch (error) {
+      console.error('❌ Error setting up GLB file:', error);
+      console.log('⚠️ Falling back to sample model');
+      return getSampleModelPath();
+    }
+  }
+  
+  // For iOS or other platforms, use sample model
+  return getSampleModelPath();
+};
+
+// Clear the cache (useful when updating the GLB file)
+export const clearModelCache = () => {
+  cachedBase64 = null;
+  cacheTimestamp = null;
+  console.log('🗑️ Model cache cleared');
 };
 
 // Alternative: Use a sample model that works on both platforms
@@ -16,6 +56,6 @@ export const getSampleModelPath = () => {
 };
 
 // Legacy function for backward compatibility
-export const getModelPath = () => {
-  return getLocalModelPath();
+export const getModelPath = async () => {
+  return await getLocalModelPath();
 };

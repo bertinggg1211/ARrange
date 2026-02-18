@@ -17,6 +17,7 @@ import Checkout from "../screens/buyer/Checkout";
 import ProductDetail from "../screens/buyer/ProductDetail";
 import ViewProducts from "../screens/buyer/ViewProducts";
 import ShopViewer from "../screens/buyer/ShopViewer";
+import ShopReviews from "../screens/buyer/ShopReviews";
 import ARViewer from "../AR_KIRI/ARViewer";
 import KiriARViewer from "../AR_KIRI/KiriARViewer";
 import AutoCaptureScanner from "../AR_KIRI/AutoCaptureScanner";
@@ -159,6 +160,7 @@ export default function BuyerNavigator() {
       <Stack.Screen name="Search" component={Search} options={{ headerShown: false }} />
       <Stack.Screen name="Shop" component={Shop} options={{ headerShown: false }} />
       <Stack.Screen name="ShopViewer" component={ShopViewer} options={{ headerShown: false }} />
+      <Stack.Screen name="ShopReviews" component={ShopReviews} options={{ headerShown: false }} />
       <Stack.Screen name="ViewProducts" component={ViewProducts} options={{ headerShown: false }} />
       <Stack.Screen name="Cart" component={Cart} options={{ headerShown: false }} />
       <Stack.Screen name="Chat" component={Chat} options={{ headerShown: false }} />

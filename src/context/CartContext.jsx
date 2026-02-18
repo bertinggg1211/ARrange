@@ -207,10 +207,17 @@ export const CartProvider = ({ children }) => {
     try {
       if (user) {
         // Clear backend cart
-        const response = await cartApi.clearCart();
-        if (response.success) {
+        try {
+          const response = await cartApi.clearCart();
+          if (response.success) {
+            setCart([]);
+            console.log('✅ Cleared backend cart successfully');
+          }
+        } catch (apiError) {
+          console.error('Error clearing cart from API:', apiError);
+          // Still clear local cart even if API fails (e.g., during account deletion)
           setCart([]);
-          console.log('✅ Cleared backend cart successfully');
+          console.log('✅ Cleared local cart despite API error');
         }
       } else {
         // Fallback to local cart

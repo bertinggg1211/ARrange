@@ -1,10 +1,17 @@
 const { createClient } = require('@supabase/supabase-js');
 const { deleteFile } = require('../services/cloudinaryStorage');
 
-// Initialize Supabase client
+// Initialize Supabase client with SERVICE KEY to bypass RLS
+// This is needed because we use JWT authentication instead of Supabase Auth
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY
+  process.env.SUPABASE_SERVICE_KEY,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
 );
 
 // Simple in-memory cache for performance optimization
@@ -148,8 +155,11 @@ async function getAllProducts(filters = {}) {
     const cachedProducts = getFromCache(cacheKey);
     if (cachedProducts) {
       console.log('📦 Returning cached products:', cachedProducts.length);
+      console.log('🔍 Cache key:', cacheKey);
       return cachedProducts;
     }
+    
+    console.log('💾 Cache MISS - fetching fresh data from database');
     
     console.log('📦 Fetching products from database with filters:', filters);
     console.log('🚨 QUERYING ALL PRODUCTS FROM DATABASE');
@@ -331,18 +341,9 @@ async function getProduct(productId) {
   return data;
 }
 
-// Set user context for RLS policies
-async function setUserContext(userId, userRole) {
-  await supabase.rpc('set_user_context', {
-    user_id: userId,
-    user_role: userRole
-  });
-}
-
 // Create product
 async function createProduct(productData, userId, userRole) {
-  // Set user context for RLS
-  await setUserContext(userId, userRole);
+  // Using SERVICE KEY client - no need for RLS context
   console.log('💾 Creating product in database with data:', {
     name: productData.name,
     price: productData.price,
@@ -375,6 +376,7 @@ async function createProduct(productData, userId, userRole) {
     console.log('✅ Product successfully inserted with ID:', data.id);
     console.log('✅ Product seller_id:', data.seller_id);
     console.log('✅ Product name:', data.name);
+    console.log('✅ Product status:', data.status);
   } else {
     console.warn('⚠️ Product insert returned no data');
   }
@@ -387,9 +389,11 @@ async function createProduct(productData, userId, userRole) {
   
   console.log('✅ Product created in database successfully:', data.id);
   
-  // Clear relevant cache entries
+  // CRITICAL: Clear ALL product-related cache entries to ensure buyers see new products immediately
+  console.log('🧹 Clearing all product and seller caches...');
   clearCache('products');
   clearCache('sellers');
+  console.log('✅ Cache cleared - buyers will now see updated product list');
   
   return data;
 }
@@ -425,9 +429,11 @@ async function updateProduct(productId, updateData) {
     throw error;
   }
   
-  // Clear relevant cache entries
+  // CRITICAL: Clear ALL cache entries so buyers see updated products
+  console.log('🧹 Clearing all caches after product update...');
   clearCache('products');
   clearCache('sellers');
+  console.log('✅ Cache cleared - product updates will be visible immediately');
   
   return data;
 }
@@ -562,7 +568,7 @@ async function deleteProduct(productId) {
     console.log('🧹 Step 7: Clearing caches...');
     clearCache('products');
     clearCache('sellers');
-    console.log('✅ Step 7 completed: Caches cleared');
+    console.log('✅ Step 7 completed: Caches cleared - product list updated for buyers');
 
     console.log('🎉 Product deletion completed successfully!');
     return true;

@@ -52,6 +52,11 @@ export default StyleSheet.create({
     borderWidth: 2,
     borderColor: Colors.surface,
   },
+  avatarPlaceholder: {
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   sellerName: {
     fontSize: Theme.fontSize.md,
     fontWeight: "bold",
@@ -94,6 +99,8 @@ export default StyleSheet.create({
     borderRadius: Theme.borderRadius.full,
     marginRight: Theme.spacing.sm,
     alignSelf: "flex-end",
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
   },
   messageContent: {
     flexDirection: "column",
@@ -283,5 +290,93 @@ export default StyleSheet.create({
   },
   messageWithAttachment: {
     marginTop: 0,
+  },
+  
+  // Review Request CTA (deprecated - now using inline rating)
+  reviewRequestCTA: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FF8B47',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  reviewRequestCTAText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginLeft: 6,
+  },
+  
+  // Inline Rating Styles
+  inlineRatingContainer: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+  },
+  inlineStarsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  inlineStarButton: {
+    padding: 4,
+  },
+  inlineRatingText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FF8B47',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  inlineCommentInput: {
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    color: '#333',
+    backgroundColor: '#FFFFFF',
+    marginBottom: 12,
+    minHeight: 60,
+    textAlignVertical: 'top',
+  },
+  inlineSubmitButton: {
+    backgroundColor: '#FF8B47',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inlineSubmitButtonDisabled: {
+    backgroundColor: '#CCCCCC',
+  },
+  inlineSubmitButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginLeft: 6,
+  },
+  reviewSubmittedContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E8F5E9',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  reviewSubmittedText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4CAF50',
+    marginLeft: 8,
   },
 });

@@ -12,7 +12,7 @@ export default StyleSheet.create({
   dot: {
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#493d8a',
+    backgroundColor: '#FF8B47',  // Changed to app's warm orange accent color
     marginHorizontal: 4,
   },
 });

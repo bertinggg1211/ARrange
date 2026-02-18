@@ -23,7 +23,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import styles from './styles/UploadItem.style';
 import ImageCropPicker from 'react-native-image-crop-picker';
 import { launchImageLibrary } from 'react-native-image-picker';
-import { createProduct } from '../../api/productApi';
+import { createProduct, createDraftProduct, updateProduct } from '../../api/productApi';
 import { BASE_URL } from '../../api/api';
 import { getLocalModelPath } from '../../utils/localModelLoader';
 
@@ -78,7 +78,10 @@ export default function UploadItem({ route, navigation }) {
   const [colorOptions, setColorOptions] = useState(initialProduct.colorOptions || []);
   const [installationType, setInstallationType] = useState(initialProduct.installationType || '');
   const [roomType, setRoomType] = useState(initialProduct.roomType || '');
-  const [isActive, setIsActive] = useState(initialProduct.status === 'active' || !initialProduct.status);
+  // Default to true for new products and drafts, only false if explicitly set to inactive
+  const [isActive, setIsActive] = useState(
+    initialProduct.status === 'inactive' ? false : true
+  );
   const [images, setImages] = useState(initialProduct.images || []);
   const [specifications, setSpecifications] = useState(initialProduct.specifications || []);
   
@@ -113,6 +116,12 @@ export default function UploadItem({ route, navigation }) {
   const [isCreating, setIsCreating] = useState(false);
   const [creationProgress, setCreationProgress] = useState(0);
   const [creationStep, setCreationStep] = useState('');
+  
+  // Lightweight loading state for temporary save (AR generation)
+  const [isSavingForAR, setIsSavingForAR] = useState(false);
+  
+  // Track draft product ID for proper update logic
+  const [draftProductId, setDraftProductId] = useState(initialProduct.id || null);
   
   // Ensure form is properly initialized for new products
   useEffect(() => {
@@ -177,16 +186,16 @@ export default function UploadItem({ route, navigation }) {
     }
   }, [isCreating, dot1Anim, dot2Anim, dot3Anim]);
 
-  // Listen for KIRI Engine scan completion
+  // Listen for TRIPO scan completion
   useEffect(() => {
-    const subscription = DeviceEventEmitter.addListener('KIRI_SCAN_COMPLETE', (data) => {
-      console.log('🎉 KIRI Engine scan completed:', data.scanData);
+    const subscription = DeviceEventEmitter.addListener('TRIPO_SCAN_COMPLETE', (data) => {
+      console.log('🎉 TRIPO scan completed:', data.scanData);
       setArScanData(data.scanData);
       setHasAR(true);
       Alert.alert(
-        '✅ 3D Model Created!',
-        `Your ${data.productName || 'product'} has been successfully converted to a professional 3D model using KIRI Engine!\n\n🎯 Ready for AR visualization\n📱 Customers can now view it in their space`,
-        [{ text: 'Awesome!', style: 'default' }]
+        '✅ 3D Model Generation Started!',
+        `Your ${data.productName || 'product'} is being converted to a professional 3D model using TRIPO AI!\n\n🎯 Processing in progress\n📱 This will take a few minutes`,
+        [{ text: 'Great!', style: 'default' }]
       );
     });
     return () => subscription.remove();
@@ -569,6 +578,59 @@ export default function UploadItem({ route, navigation }) {
     setColorOptions(updatedColors);
   };
 
+  // Auto-fill function with sample data
+  const handleAutoFill = () => {
+    Alert.alert(
+      'Auto-Fill Product Details',
+      'This will fill all fields with sample data. Do you want to continue?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Fill',
+          onPress: () => {
+            // Step 2: Basic Info fields
+            setName('Crystal Chandelier Premium');
+            setPrice('15000');
+            setStock('10');
+            setCategory('Chandeliers');
+            setDescription('Elegant crystal chandelier with premium materials. Features stunning glass crystals that create beautiful light patterns. Perfect for dining rooms, living rooms, and luxury spaces. Energy-efficient LED compatible design with modern aesthetics.');
+            setDeliveryCharge('500');
+            setInstallationCost('1500');
+            setFreeDeliveryThreshold('20000');
+            setInstallationIncluded(true);
+
+            // Step 3: Product Details fields (excluding AR model)
+            setBrand('LuxeLights');
+            setModel('CL-2024-PRO');
+            setDimensions('60cm x 80cm');
+            setWeight('12kg');
+            setMaterial('Stainless Steel, K9 Crystal Glass');
+            setWarranty('2 years');
+            setBulbType('LED');
+            setNumberOfBulbs('8');
+            setVoltage('220V');
+            setLedType('Warm White LED');
+            setLumens('3200');
+            setIsDimmable(true);
+            setInstallationType('Ceiling Mount');
+            setRoomType('Living Room');
+            setColorOptions(['Gold', 'Silver', 'Clear']);
+            setSpecifications([
+              { name: 'Power Consumption', value: '64W' },
+              { name: 'Color Temperature', value: '3000K' },
+              { name: 'IP Rating', value: 'IP20' }
+            ]);
+
+            Alert.alert('Success', 'All fields have been filled with sample data!');
+          }
+        }
+      ]
+    );
+  };
+
   const clearForm = () => {
     setName('');
     setPrice('');
@@ -605,13 +667,37 @@ export default function UploadItem({ route, navigation }) {
     // Clear local model fields
     setUseLocalModel(false);
     setSelectedLocalModel('TEST4');
+    // Clear draft product ID
+    setDraftProductId(null);
     console.log('✅ Form cleared - ready for new product');
   };
+
+  // NO LONGER NEEDED - We don't create drafts for AR scanning anymore
+  // AR data is stored temporarily and attached when the final product is created
+  // This prevents product duplication issues
+  
+  // REMOVED: handleTemporarySave() function
+  // Previously created draft products that caused duplication when final "Create" was pressed
 
   const handleSubmit = async () => {
     if (!name || !price || !description || !category) {
       Alert.alert('Error', 'Please fill in all required fields (Name, Price, Description, Category).');
       return;
+    }
+
+    // Determine the operation type
+    // IMPORTANT: Only update if in editMode, never update drafts
+    const isUpdate = editMode && initialProduct.id;
+    
+    if (isUpdate) {
+      console.log('✏️ Updating existing product with ID:', initialProduct.id);
+    } else {
+      console.log('🆕 Creating NEW product (no draft, no duplication)');
+      // Clear any draft ID to ensure we create a fresh product
+      if (draftProductId) {
+        console.log('⚠️ Clearing draftProductId to prevent update:', draftProductId);
+        setDraftProductId(null);
+      }
     }
 
     // Start loading process
@@ -648,7 +734,7 @@ export default function UploadItem({ route, navigation }) {
       // Check for stored AR data from ARViewer confirmation
       let finalHasAR = hasAR;
       let finalArScanData = arScanData;
-      let finalArModelSource = 'kiri';
+      let finalArModelSource = 'tripo';
       let finalArModelType = null;
       let finalArModelUrl = null;
       
@@ -663,7 +749,7 @@ export default function UploadItem({ route, navigation }) {
         console.log('🏠 Local model type:', finalArModelType);
         console.log('🏠 Local model source:', finalArModelSource);
       } else {
-        // Use KIRI Engine or stored AR data
+        // Use TRIPO or stored AR data
         try {
           const storedArData = await AsyncStorage.getItem('pending_ar_data');
           if (storedArData) {
@@ -672,7 +758,7 @@ export default function UploadItem({ route, navigation }) {
             
             finalHasAR = true;
             finalArScanData = parsedArData.scanData;
-            finalArModelSource = 'kiri';
+            finalArModelSource = 'tripo';
             finalArModelUrl = parsedArData.modelUrl;
             
             // Clear the stored AR data after using it
@@ -724,7 +810,75 @@ export default function UploadItem({ route, navigation }) {
       setCreationProgress(60);
       setCreationStep('Uploading to server...');
       
-      const resp = await createProduct(productData);
+      let resp;
+      if (isUpdate) {
+        // Update existing product (edit mode only)
+        console.log('📝 Updating existing product ID:', initialProduct.id);
+        console.log('📝 Product status being set:', productData.status);
+        console.log('📝 isActive value:', isActive);
+        resp = await updateProduct(initialProduct.id, productData);
+      } else {
+        // Create new product (NEVER update drafts - always create fresh)
+        console.log('🆕 Creating NEW product from scratch');
+        console.log('🆕 Product status being set:', productData.status);
+        console.log('🆕 isActive value:', isActive);
+        console.log('🆕 Has AR data:', !!finalArScanData);
+        resp = await createProduct(productData);
+        
+        // CRITICAL: If product has pending TRIPO task, trigger polling NOW
+        if (resp.product?.id && finalArScanData?.task_id && finalArScanData?.status === 'processing') {
+          console.log('🔄 Product created with pending TRIPO task - triggering polling...');
+          console.log('   Product ID:', resp.product.id);
+          console.log('   Product ID type:', typeof resp.product.id);
+          console.log('   Task ID:', finalArScanData.task_id);
+          console.log('   Full response:', JSON.stringify(resp, null, 2));
+          
+          // CRITICAL: Validate product ID before sending
+          if (!resp.product.id || resp.product.id === 'null' || resp.product.id === null) {
+            console.error('❌ Invalid product ID received from createProduct API!');
+            console.error('   Response:', resp);
+            Alert.alert('Warning', 'Product created but AR processing may fail. Product ID is invalid.');
+            return;
+          }
+          
+          try {
+            // Call backend to start polling for this task
+            const token = await AsyncStorage.getItem('authToken');
+            
+            const pollingPayload = {
+              task_id: finalArScanData.task_id,
+              product_id: resp.product.id  // Ensure this is the actual UUID
+            };
+            
+            console.log('📤 Sending polling request with payload:', pollingPayload);
+            
+            const pollingResponse = await fetch(`${BASE_URL}/api/ar/tripo/process`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify(pollingPayload)
+            });
+            
+            const pollingResult = await pollingResponse.json();
+            
+            if (pollingResponse.ok) {
+              console.log('✅ TRIPO polling started successfully!');
+              console.log('   The 3D model will be ready in a few minutes');
+              console.log('   Polling response:', pollingResult);
+            } else {
+              console.error('❌ Failed to start TRIPO polling');
+              console.error('   Status:', pollingResponse.status);
+              console.error('   Response:', pollingResult);
+              Alert.alert('AR Processing Issue', `Failed to start 3D model processing: ${pollingResult.error || 'Unknown error'}`);
+            }
+          } catch (pollingError) {
+            console.error('❌ Error starting TRIPO polling:', pollingError);
+            // Don't fail the whole product creation - just log the error
+          }
+        }
+      }
       
       // Step 4: Finalizing
       setCreationProgress(80);
@@ -778,17 +932,23 @@ export default function UploadItem({ route, navigation }) {
       setShowSuccessPopup(true);
       
       // Clear form and reset to step 1 for new products (but don't navigate yet)
-      if (!editMode) {
+      if (!isUpdate) {
         clearForm();
         setCurrentStep(1);
         setCreationProgress(0);
         setCreationStep('');
+        // Ensure draft ID is cleared for next product
+        setDraftProductId(null);
       }
+      
+      // Return the created product data for caller to use
+      return resp.product;
     } catch (e) {
       setIsCreating(false);
       setCreationProgress(0);
       setCreationStep('');
       Alert.alert('Error', e.message || 'Failed to create product');
+      throw e; // Re-throw so caller knows it failed
     }
   };
 
@@ -1047,7 +1207,16 @@ export default function UploadItem({ route, navigation }) {
 
             {/* Basic Information */}
             <View style={styles.formSection}>
-              <Text style={styles.sectionTitle}>Essential Details</Text>
+              <View style={styles.sectionHeaderWithButton}>
+                <Text style={styles.sectionTitle}>Essential Details</Text>
+                <TouchableOpacity 
+                  style={styles.autoFillButton}
+                  onPress={handleAutoFill}
+                >
+                  <Icon name="flash" size={18} color="#FFFFFF" />
+                  <Text style={styles.autoFillButtonText}>Auto-Fill</Text>
+                </TouchableOpacity>
+              </View>
               
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Product Name *</Text>
@@ -1188,90 +1357,6 @@ export default function UploadItem({ route, navigation }) {
               </View>
             </View>
 
-        {/* Product Details */}
-        <View style={styles.formSection}>
-          <Text style={styles.sectionTitle}>Product Details</Text>
-          
-          <View style={styles.rowContainer}>
-            <View style={styles.halfInput}>
-              <Text style={styles.inputLabel}>Brand</Text>
-              <TextInput
-                style={styles.textInput}
-                value={brand}
-                onChangeText={setBrand}
-                placeholder="Brand name (e.g., Philips, IKEA)"
-                  placeholderTextColor="#64748B"
-              />
-            </View>
-            <View style={styles.halfInput}>
-              <Text style={styles.inputLabel}>Model</Text>
-              <TextInput
-                style={styles.textInput}
-                value={model}
-                onChangeText={setModel}
-                placeholder="Model number (e.g., CL-2024)"
-                  placeholderTextColor="#64748B"
-              />
-            </View>
-          </View>
-
-          <View style={styles.rowContainer}>
-            <View style={styles.halfInput}>
-              <Text style={styles.inputLabel}>Dimensions</Text>
-              <TextInput
-                style={styles.textInput}
-                value={dimensions}
-                onChangeText={setDimensions}
-                placeholder="Dimensions (e.g., 30cm x 20cm x 15cm)"
-                  placeholderTextColor="#64748B"
-              />
-            </View>
-            <View style={styles.halfInput}>
-              <Text style={styles.inputLabel}>Weight</Text>
-              <TextInput
-                style={styles.textInput}
-                value={weight}
-                onChangeText={setWeight}
-                placeholder="Weight in kg (e.g., 2.5)"
-                  placeholderTextColor="#64748B"
-              />
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Material</Text>
-            <TextInput
-              style={styles.textInput}
-              value={material}
-              onChangeText={setMaterial}
-              placeholder="Materials used (e.g., Crystal, Metal, Glass)"
-                  placeholderTextColor="#64748B"
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Warranty</Text>
-            <TextInput
-              style={styles.textInput}
-              value={warranty}
-              onChangeText={setWarranty}
-              placeholder="Warranty period (e.g., 1 Year Warranty)"
-                  placeholderTextColor="#64748B"
-            />
-          </View>
-
-          {/* Local 3D Model Switch */}
-          <View style={styles.featureRow}>
-            <View style={styles.featureItem}>
-            </View>
-            <Switch
-              value={useLocalModel}
-              onValueChange={setUseLocalModel}
-              trackColor={{ false: '#E2E8F0', true: '#10B981' }}
-              thumbColor={useLocalModel ? '#FFFFFF' : '#FFFFFF'}
-            />
-          </View>
-        </View>
 
         {/* Technical Specifications */}
         <View style={styles.formSection}>
@@ -1450,23 +1535,89 @@ export default function UploadItem({ route, navigation }) {
             </View>
             <TouchableOpacity
               style={[styles.featureButton, { backgroundColor: '#FF8B47' }]}
-              onPress={() => {
+              onPress={async () => {
                 console.log('🎯 CREATE 3D MODEL button pressed');
                 console.log('📋 Product name:', name);
                 console.log('🧭 Navigation object:', navigation);
+                console.log('📦 Edit mode:', editMode);
+                console.log('🆔 Product ID:', initialProduct.id);
                 
-                // Direct navigation for testing
-                try {
-                  console.log('🚀 Direct navigation to KiriEngineScanner...');
-                  navigation.navigate('KiriEngineScanner', {
-                    productId: null,
-                    productName: name || 'New Product'
-                  });
-                  console.log('✅ Direct navigation successful');
-                } catch (error) {
-                  console.error('❌ Direct navigation failed:', error);
-                  Alert.alert('Navigation Error', 'Failed to open KIRI Scanner. Please try again.');
+                // Check if basic product info is filled
+                if (!name || name.trim() === '') {
+                  Alert.alert('Product Name Required', 'Please enter a product name first');
+                  return;
                 }
+
+                if (!price || price <= 0) {
+                  Alert.alert('Price Required', 'Please enter a valid product price');
+                  return;
+                }
+
+                if (images.length === 0) {
+                  Alert.alert('Images Required', 'Please upload at least one product image');
+                  return;
+                }
+
+                // Check if this is edit mode (product already exists)
+                if (editMode && initialProduct.id) {
+                  // Product already exists - proceed with TRIPO scanner directly
+                  console.log('🚀 Opening TripoScanner for existing product ID:', initialProduct.id);
+                  try {
+                    navigation.navigate('TripoScanner', {
+                      productId: initialProduct.id,
+                      productName: name || 'Product',
+                      isTemporary: false
+                    });
+                  } catch (error) {
+                    console.error('❌ Navigation failed:', error);
+                    Alert.alert('Error', 'Failed to open TRIPO Scanner');
+                  }
+                  return;
+                }
+
+                // NEW PRODUCT - Go directly to TripoScanner WITHOUT creating draft
+                // Validate required fields
+                if (!name || !price || !description || !category) {
+                  Alert.alert(
+                    'Missing Information', 
+                    'Please fill in all required fields (Name, Price, Description, Category) before creating a 3D model.'
+                  );
+                  return;
+                }
+                
+                // Show info and navigate directly to scanner
+                Alert.alert(
+                  '🎨 Create 3D Model',
+                  'You will scan your product to generate a 3D model. After scanning, return here to complete and upload your product.',
+                  [
+                    {
+                      text: 'Cancel',
+                      style: 'cancel'
+                    },
+                    {
+                      text: 'Continue',
+                      style: 'default',
+                      onPress: () => {
+                        console.log('🚀 Opening TripoScanner for NEW product (no draft created)');
+                        console.log('📋 Product info for AR:', { name, price, category });
+                        
+                        try {
+                          // Navigate to TRIPO scanner WITHOUT product ID
+                          // TripoScanner will handle AR generation and return data via event
+                          navigation.navigate('TripoScanner', {
+                            productId: null, // No ID yet - product not created
+                            productName: name,
+                            isTemporary: true // Flag to indicate this is for a new product
+                          });
+                        } catch (error) {
+                          console.error('❌ Navigation failed:', error);
+                          Alert.alert('Error', 'Failed to open TRIPO Scanner');
+                        }
+                      }
+                    }
+                  ]
+                );
+                return;
               }}
               activeOpacity={0.7}
             >
@@ -1477,7 +1628,7 @@ export default function UploadItem({ route, navigation }) {
                   color={hasAR ? '#10B981' : '#FFFFFF'} 
                 />
                 <Text style={[styles.featureButtonText, hasAR && styles.featureButtonTextSuccess]}>
-                  {hasAR ? 'KIRI 3D Model ✓' : 'Create 3D Model'}
+                  {hasAR ? 'TRIPO 3D Model ✓' : 'Create 3D Model'}
                 </Text>
               </View>
               {hasAR && arScanData && (
@@ -1493,25 +1644,6 @@ export default function UploadItem({ route, navigation }) {
             </TouchableOpacity>
           </View>
 
-
-          {/* KIRI Engine Test Button - Development Only */}
-          {__DEV__ && (
-            <View style={styles.featureRow}>
-              <View style={styles.featureItem}>
-                <Icon name="flask-outline" size={24} color="#3B82F6" />
-                <Text style={styles.featureLabel}>KIRI Test</Text>
-              </View>
-              <TouchableOpacity
-                style={[styles.featureButton, { backgroundColor: '#3B82F6' }]}
-                onPress={() => navigation.navigate('KiriEngineTest')}
-              >
-                <View style={styles.featureButtonContent}>
-                  <Icon name="bug" size={20} color="#FFFFFF" />
-                  <Text style={styles.featureButtonText}>Test KIRI Engine</Text>
-                </View>
-              </TouchableOpacity>
-            </View>
-          )}
 
           <View style={styles.featureRow}>
             <View style={styles.featureItem}>
@@ -2028,8 +2160,12 @@ export default function UploadItem({ route, navigation }) {
       {/* Custom Success Popup */}
       {showSuccessPopup && createdProduct && (
         <View style={styles.successOverlay}>
-          <View style={styles.successContainer}>
-            <View style={styles.successHeader}>
+          <ScrollView 
+            contentContainerStyle={styles.successScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.successContainer}>
+              <View style={styles.successHeader}>
               <View style={styles.successIconContainer}>
                 <Icon name="checkmark-circle" size={64} color="#10B981" />
               </View>
@@ -2081,6 +2217,20 @@ export default function UploadItem({ route, navigation }) {
                 <Text style={styles.tertiarySuccessButtonText}>View All Products</Text>
               </TouchableOpacity>
             </View>
+            </View>
+          </ScrollView>
+        </View>
+      )}
+
+      {/* Lightweight Loading Modal for AR Save */}
+      {isSavingForAR && (
+        <View style={styles.arSaveOverlay}>
+          <View style={styles.arSaveModal}>
+            <View style={styles.arSaveSpinner}>
+              <Icon name="sync" size={48} color="#FF8B47" />
+            </View>
+            <Text style={styles.arSaveText}>Saving product...</Text>
+            <Text style={styles.arSaveSubtext}>Getting ready for 3D scan</Text>
           </View>
         </View>
       )}

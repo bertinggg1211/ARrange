@@ -99,6 +99,30 @@ router.get('/test-schema', async (req, res) => {
   }
 });
 
+// Clear cache endpoint (for debugging)
+router.post('/clear-cache', async (req, res) => {
+  try {
+    console.log('🧹 Manual cache clear requested...');
+    const { clearCache } = require('../db/supabaseHelpers');
+    
+    // Clear all caches
+    clearCache(); // No pattern = clear all
+    
+    console.log('✅ All caches cleared successfully');
+    res.json({
+      success: true,
+      message: 'All caches cleared successfully. Fresh data will be loaded on next request.'
+    });
+  } catch (error) {
+    console.error('❌ Cache clear error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to clear cache',
+      error: error.message
+    });
+  }
+});
+
 // Multer configurations for different file types
 const imageUpload = createImageUpload();
 const arUpload = createARUpload();
@@ -227,6 +251,36 @@ router.get('/', async (req, res) => {
         hasSellerProfile: !!products[0].sellerProfile
       } : 'No products');
       
+      // Get product ratings for all products
+      const { supabase } = require('../db/supabase');
+      const productIds = products.map(p => p.id);
+      
+      // Fetch ratings for all products in one query
+      const { data: ratingsData } = await supabase
+        .from('product_reviews')
+        .select('product_id, rating')
+        .in('product_id', productIds)
+        .eq('status', 'active');
+      
+      // Calculate average rating for each product
+      const productRatings = {};
+      const productReviewCounts = {};
+      
+      (ratingsData || []).forEach(review => {
+        if (!productRatings[review.product_id]) {
+          productRatings[review.product_id] = [];
+        }
+        productRatings[review.product_id].push(review.rating);
+      });
+      
+      Object.keys(productRatings).forEach(productId => {
+        const ratings = productRatings[productId];
+        productReviewCounts[productId] = ratings.length;
+        productRatings[productId] = ratings.reduce((sum, r) => sum + r, 0) / ratings.length;
+      });
+      
+      console.log('⭐ Product ratings calculated:', Object.keys(productRatings).length, 'products with reviews');
+      
       res.json({
         success: true,
         products: products.map(product => ({
@@ -239,6 +293,25 @@ router.get('/', async (req, res) => {
           stock: product.stock_quantity,
           hasAR: product.has_ar || false,
           arModel: product.ar_model,
+          arModelSource: product.ar_model_source,
+          // Rating data
+          rating: productRatings[product.id] || 0,
+          reviewCount: productReviewCounts[product.id] || 0,
+          // CRITICAL FIX: Ensure arScanData has the model URL that ViewAR expects
+          arScanData: product.ar_scan_data ? {
+            ...product.ar_scan_data,
+            // Add model URL in all possible field names for compatibility
+            glbUrl: product.ar_model || product.ar_scan_data.glbUrl,
+            cloudinaryUrl: product.ar_model || product.ar_scan_data.cloudinaryUrl,
+            modelUrl: product.ar_model || product.ar_scan_data.modelUrl
+          } : (product.ar_model ? {
+            // If no ar_scan_data but we have ar_model, create minimal scan data
+            source: product.ar_model_source || 'tripo',
+            glbUrl: product.ar_model,
+            cloudinaryUrl: product.ar_model,
+            modelUrl: product.ar_model,
+            storage: 'supabase'
+          } : null),
           seller_id: product.seller_id,
           sellerProfile: product.sellerProfile,
           shopName: product.shopName,
@@ -357,6 +430,7 @@ router.get('/shop/:sellerId', async (req, res) => {
       status: product.status,
       hasAR: product.has_ar || false,
       arModel: product.ar_model,
+      arModelSource: product.ar_model_source,
       dimensions: product.dimensions,
       weight: product.weight,
       material: product.material,
@@ -375,7 +449,21 @@ router.get('/shop/:sellerId', async (req, res) => {
       specifications: product.specifications || [],
       createdAt: product.created_at,
       updatedAt: product.updated_at,
-      arScanData: product.ar_scan_data,
+      // CRITICAL FIX: Ensure arScanData has the model URL that ViewAR expects
+      arScanData: product.ar_scan_data ? {
+        ...product.ar_scan_data,
+        // Add model URL in all possible field names for compatibility
+        glbUrl: product.ar_model || product.ar_scan_data.glbUrl,
+        cloudinaryUrl: product.ar_model || product.ar_scan_data.cloudinaryUrl,
+        modelUrl: product.ar_model || product.ar_scan_data.modelUrl
+      } : (product.ar_model ? {
+        // If no ar_scan_data but we have ar_model, create minimal scan data
+        source: product.ar_model_source || 'tripo',
+        glbUrl: product.ar_model,
+        cloudinaryUrl: product.ar_model,
+        modelUrl: product.ar_model,
+        storage: 'supabase'
+      } : null),
       arModelUrl: product.ar_model_url,
       arThumbnailUrl: product.ar_thumbnail_url
     }));
@@ -481,6 +569,91 @@ router.get('/seller', auth, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch products',
+      error: error.message
+    });
+  }
+});
+
+// Create draft product for AR generation (lightweight, no image upload)
+router.post('/draft', auth, async (req, res) => {
+  try {
+    console.log('📝 Draft product creation request received');
+    console.log('📝 User object:', req.user);
+    console.log('📝 User ID:', req.user?.id);
+    console.log('📝 Request body:', req.body);
+
+    const userId = req.user?.id; // FIXED: Use id, not userId
+    if (!userId) {
+      console.error('❌ User ID not found in token payload:', req.user);
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+    }
+
+    const { name, price, description, category, stock } = req.body;
+
+    // Validate required fields
+    if (!name || !price || !description || !category) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: name, price, description, category'
+      });
+    }
+
+    // Create minimal draft product in database
+    const { supabase } = require('../db/supabase');
+    
+    // Prepare minimal data - only required fields
+    const draftData = {
+      seller_id: userId,
+      name: name,
+      price: parseFloat(price),
+      description: description,
+      category: category,
+      stock_quantity: parseInt(stock) || 1, // FIXED: Use stock_quantity, not stock
+      status: 'draft', // Mark as draft
+    };
+    
+    console.log('📝 Attempting to insert draft product:', draftData);
+    
+    const { data: product, error } = await supabase
+      .from('products')
+      .insert(draftData)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ Error creating draft product:', error);
+      console.error('❌ Error details:', JSON.stringify(error, null, 2));
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to create draft product',
+        error: error.message,
+        details: error.details || error.hint || 'No additional details'
+      });
+    }
+
+    console.log('✅ Draft product created successfully:', product.id);
+
+    res.status(201).json({
+      success: true,
+      message: 'Draft product created successfully',
+      product: {
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        description: product.description,
+        category: product.category,
+        stock: product.stock_quantity, // FIXED: Use stock_quantity
+        status: product.status
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error in draft product creation:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create draft product',
       error: error.message
     });
   }
@@ -964,6 +1137,70 @@ router.put('/:productId', auth, imageUpload.array('newImages', 5), async (req, r
   }
 });
 
+// Delete AR model from product
+router.delete('/:productId/ar-model', auth, async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const sellerId = req.user.id;
+    
+    // Get existing product to check ownership
+    const product = await getProduct(productId);
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found'
+      });
+    }
+    
+    // Check ownership
+    if (product.seller_id !== sellerId) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only modify your own products'
+      });
+    }
+    
+    // Update product to remove AR data
+    const { supabase } = require('../db/supabase');
+    const { data, error } = await supabase
+      .from('products')
+      .update({
+        has_ar: false,
+        ar_scan_data: null,
+        ar_model_url: null,
+        ar_thumbnail_url: null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', productId)
+      .select()
+      .single();
+    
+    if (error) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to delete AR model',
+        error: error.message
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'AR model deleted successfully',
+      product: {
+        id: data.id,
+        hasAR: false,
+        arScanData: null
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete AR model',
+      error: error.message
+    });
+  }
+});
+
 // Delete product
 router.delete('/:productId', auth, async (req, res) => {
   try {
@@ -1071,7 +1308,21 @@ router.get('/:productId', async (req, res) => {
         specifications: product.specifications || [],
         hasAR: product.has_ar || false,
         arModel: product.ar_model,
-        arScanData: product.ar_scan_data, // FIXED: Add missing AR fields
+        // CRITICAL FIX: Ensure arScanData has the model URL that ViewAR expects
+        arScanData: product.ar_scan_data ? {
+          ...product.ar_scan_data,
+          // Add model URL in all possible field names for compatibility
+          glbUrl: product.ar_model || product.ar_scan_data.glbUrl,
+          cloudinaryUrl: product.ar_model || product.ar_scan_data.cloudinaryUrl,
+          modelUrl: product.ar_model || product.ar_scan_data.modelUrl
+        } : (product.ar_model ? {
+          // If no ar_scan_data but we have ar_model, create minimal scan data
+          source: product.ar_model_source || 'tripo',
+          glbUrl: product.ar_model,
+          cloudinaryUrl: product.ar_model,
+          modelUrl: product.ar_model,
+          storage: 'supabase'
+        } : null),
         arModelUrl: product.ar_model_url,
         arModelSource: product.ar_model_source,
         arModelType: product.ar_model_type,

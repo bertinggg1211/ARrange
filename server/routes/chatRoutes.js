@@ -190,14 +190,14 @@ router.get("/setup", async (req, res) => {
   }
 });
 
-// GET /api/chat/messages/:sellerId - Get messages between current user and seller
-router.get("/messages/:sellerId", auth, async (req, res) => {
+// GET /api/chat/messages/:partnerId - Get messages between current user and partner
+router.get("/messages/:partnerId", auth, async (req, res) => {
   try {
-    const { sellerId } = req.params;
-    const buyerId = req.user.id;
+    const { partnerId } = req.params;
+    const userId = req.user.id;
     const userRole = req.user.role;
     
-    console.log('💬 Fetching messages between buyer:', buyerId, 'and seller:', sellerId);
+    console.log('💬 Fetching messages for user:', userId, 'with partner:', partnerId);
     console.log('🔍 User role:', userRole);
     console.log('🕐 Request timestamp:', new Date().toISOString());
     
@@ -238,12 +238,17 @@ router.get("/messages/:sellerId", auth, async (req, res) => {
     }
     
     // Now try to query messages with detailed logging
-    console.log('🔍 Querying messages table with buyer_id:', buyerId, 'seller_id:', sellerId);
+    console.log('🔍 Querying messages table for user:', userId, 'partner:', partnerId);
     console.log('🔍 User role:', userRole);
     
     let query;
+    let buyerId, sellerId;
+    
     if (userRole === 'buyer') {
-      // For buyers: query with buyer_id = current user, seller_id = partner
+      // For buyers: current user is buyer, partner is seller
+      buyerId = userId;
+      sellerId = partnerId;
+      
       query = supabase
         .from('messages')
         .select(`
@@ -259,7 +264,10 @@ router.get("/messages/:sellerId", auth, async (req, res) => {
         .eq('seller_id', sellerId)
         .order('created_at', { ascending: true });
     } else {
-      // For sellers: query with seller_id = current user, buyer_id = partner
+      // For sellers: current user is seller, partner is buyer
+      sellerId = userId;
+      buyerId = partnerId;
+      
       query = supabase
         .from('messages')
         .select(`
@@ -271,12 +279,23 @@ router.get("/messages/:sellerId", auth, async (req, res) => {
           is_read,
           product_data
         `)
-        .eq('seller_id', buyerId)  // seller_id = current user (seller)
-        .eq('buyer_id', sellerId)  // buyer_id = partner (buyer)
+        .eq('seller_id', sellerId)  // seller_id = current user (seller)
+        .eq('buyer_id', buyerId)    // buyer_id = partner (buyer)
         .order('created_at', { ascending: true });
     }
     
+    console.log('🔍 Query parameters - buyer_id:', buyerId, 'seller_id:', sellerId);
+    
     const { data: messages, error: msgError } = await query;
+    
+    console.log('📊 Query result - Found messages:', messages?.length || 0);
+    if (messages && messages.length > 0) {
+      console.log('📨 First message sample:', {
+        id: messages[0].id,
+        sender_id: messages[0].sender_id,
+        message: messages[0].message?.substring(0, 50)
+      });
+    }
     
     console.log('🔍 Query result - messages found:', messages?.length || 0);
     console.log('🔍 Query result - error:', msgError?.message || 'none');
@@ -316,18 +335,54 @@ router.get("/messages/:sellerId", auth, async (req, res) => {
     // Format messages for frontend with proper error handling
     const formattedMessages = (messages || []).map(msg => {
       try {
-        const productData = msg.product_data ? JSON.parse(msg.product_data) : null;
-        console.log('🔍 Parsed product data for message:', msg.id, productData);
+        // Handle both JSON string and JSONB object from Supabase
+        let productData = null;
+        if (msg.product_data) {
+          if (typeof msg.product_data === 'string') {
+            // It's a JSON string, parse it
+            try {
+              productData = JSON.parse(msg.product_data);
+              console.log('🔍 Parsed product_data from JSON string:', productData);
+            } catch (parseError) {
+              console.error('❌ Error parsing product_data JSON string:', parseError);
+              productData = null;
+            }
+          } else if (typeof msg.product_data === 'object') {
+            // It's already a JSONB object from Supabase
+            productData = msg.product_data;
+            console.log('🔍 Using product_data as object (JSONB):', productData);
+          }
+        }
+        
+        console.log('🔍 Final product data for message:', msg.id, productData);
         console.log('🕐 Message timestamp fields:', {
           timestamp: msg.timestamp,
           created_at: msg.created_at,
           using: msg.created_at || msg.timestamp
         });
         
+        // Determine sender based on sender_id
+        // For buyer viewing chat: if sender_id === buyer_id, then sender is "buyer", else "seller"
+        // For seller viewing chat: if sender_id === seller_id, then sender is "seller", else "buyer"
+        let sender;
+        if (userRole === 'buyer') {
+          sender = msg.sender_id === buyerId ? 'buyer' : 'seller';
+        } else {
+          sender = msg.sender_id === sellerId ? 'seller' : 'buyer';
+        }
+        
+        console.log('🔍 Message sender determination:', {
+          sender_id: msg.sender_id,
+          buyer_id: buyerId,
+          seller_id: sellerId,
+          userRole: userRole,
+          determined_sender: sender
+        });
+        
         return {
           id: msg.id,
           message: msg.message,
-          sender: msg.sender_type || 'buyer', // Use actual sender_type if available
+          sender: sender,
           timestamp: new Date(msg.created_at || msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
           date: new Date(msg.created_at || msg.timestamp),
           is_read: msg.is_read || false,
@@ -375,8 +430,8 @@ router.get("/messages/:sellerId", auth, async (req, res) => {
       error: error.message,
       errorType: error.name,
       debug: {
-        buyerId: req.user?.id,
-        sellerId: req.params?.sellerId,
+        userId: req.user?.id,
+        partnerId: req.params?.partnerId,
         timestamp: new Date().toISOString()
       }
     });
@@ -392,38 +447,60 @@ router.post("/send", auth, async (req, res) => {
     console.log('🕐 Server time:', new Date().toISOString());
     
     const { sellerId, message, productData } = req.body;
-    const buyerId = req.user.id;
+    const currentUserId = req.user.id;
     const userRole = req.user.role;
 
-    console.log('💬 Sending message from', userRole + ':', buyerId, 'to seller:', sellerId);
+    console.log('💬 User role:', userRole);
+    console.log('💬 Current user ID:', currentUserId);
+    console.log('💬 Partner ID (sellerId param):', sellerId);
     console.log('📝 Message:', message);
     console.log('🛍️ Product data:', productData?.name || 'No product', `(${productData?.id})`);
-    console.log('🛍️ Full product data:', JSON.stringify(productData, null, 2));
 
     if (!sellerId || !message) {
       return res.status(400).json({ 
         success: false, 
-        message: 'Seller ID and message are required' 
+        message: 'Partner ID and message are required' 
       });
     }
 
-    // Skip conversation creation - work directly with messages table
-    console.log('💬 Working with existing messages table schema');
+    // Determine buyer_id and seller_id based on user role
+    let buyerId, actualSellerId, senderId;
+    
+    if (userRole === 'buyer') {
+      // Buyer sending message to seller
+      buyerId = currentUserId;        // Current user is buyer
+      actualSellerId = sellerId;      // Partner is seller
+      senderId = currentUserId;       // Sender is buyer
+      console.log('✅ BUYER sending to SELLER');
+    } else if (userRole === 'seller') {
+      // Seller sending message to buyer
+      buyerId = sellerId;             // Partner is buyer (confusing naming from frontend!)
+      actualSellerId = currentUserId; // Current user is seller
+      senderId = currentUserId;       // Sender is seller
+      console.log('✅ SELLER sending to BUYER');
+    } else {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid user role' 
+      });
+    }
 
-    // Try to insert the message with minimal required fields first
+    console.log('💬 Final IDs - buyer_id:', buyerId, 'seller_id:', actualSellerId, 'sender_id:', senderId);
+
+    // Insert message into database
     const now = new Date();
     let insertData = {
       buyer_id: buyerId,
-      seller_id: sellerId,
-      sender_id: buyerId, // Set sender_id to buyerId since buyer is sending the message
+      seller_id: actualSellerId,
+      sender_id: senderId,
       message: message,
-      product_data: productData ? JSON.stringify(productData) : null, // Include product data
-      created_at: now.toISOString(), // Set explicit timestamp
-      timestamp: now.toISOString() // Also set timestamp field
+      product_data: productData ? JSON.stringify(productData) : null,
+      created_at: now.toISOString(),
+      timestamp: now.toISOString()
     };
     
-    console.log('✅ Including sender_id field - set to buyerId:', buyerId);
-    console.log('✅ Setting explicit timestamp:', now.toISOString());
+    console.log('✅ Inserting message with correct IDs');
+    console.log('✅ Setting timestamp:', now.toISOString());
     
     console.log('📝 Inserting message with data:', insertData);
     console.log('📝 Product data being saved:', insertData.product_data);
@@ -490,17 +567,17 @@ router.post("/send", auth, async (req, res) => {
     const responseMessage = {
       id: newMessage.id,
       message: newMessage.message,
-      sender: 'buyer',
+      sender: userRole, // Return the actual sender role
       timestamp: newMessage.timestamp || Date.now(),
       created_at: newMessage.created_at || new Date().toISOString(),
       is_read: false,
-      productData: null
+      productData: productData || null
     };
 
     res.json({ 
       success: true, 
       message: responseMessage,
-      serverVersion: 'UPDATED_SERVER_v2.0',
+      serverVersion: 'UPDATED_SERVER_v3.0_FIXED',
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -610,16 +687,18 @@ router.get("/conversations", auth, async (req, res) => {
     // Get unique partner IDs to fetch user data
     const partnerIds = Array.from(conversationMap.keys());
 
-    // Fetch partner user data
+    // Fetch partner user data with profile pictures
     const { data: partners, error: partnersError } = await supabase
       .from('users')
-      .select('id, full_name, shop_name, seller_profile')
+      .select('id, full_name, shop_name, seller_profile, role, profile_picture')
       .in('id', partnerIds);
 
     if (partnersError) {
       console.error('Error fetching partner data:', partnersError);
       // Continue with limited data
     }
+
+    console.log('👥 Fetched partner data:', partners);
 
     // Create a map for quick lookup
     const partnersMap = new Map();
@@ -634,11 +713,36 @@ router.get("/conversations", auth, async (req, res) => {
       const partner = partnersMap.get(conv.partnerId);
       const partnerProfile = partner?.seller_profile;
       
+      // Determine partner name based on role
+      let partnerName;
+      if (partner?.role === 'seller') {
+        // Seller profile: use business name or shop name
+        partnerName = partnerProfile?.businessName || partnerProfile?.shopName || partner?.shop_name || partner?.full_name || 'Seller';
+      } else {
+        // Buyer profile: use full name
+        partnerName = partner?.full_name || 'Customer';
+      }
+      
+      // Determine partner avatar based on role
+      let partnerAvatar = null;
+      if (partner?.role === 'seller') {
+        // Seller: use shop logo or profile image from seller_profile
+        partnerAvatar = partnerProfile?.shopLogo || partnerProfile?.profileImage || partner?.profile_picture || null;
+      } else {
+        // Buyer: use profile_picture field
+        partnerAvatar = partner?.profile_picture || null;
+      }
+      
+      console.log(`📸 Partner ${conv.partnerId} (${partner?.role}):`, {
+        name: partnerName,
+        avatar: partnerAvatar
+      });
+      
       return {
         id: `conv_${conv.partnerId}`,
         partnerId: conv.partnerId,
-        partnerName: partnerProfile?.businessName || partnerProfile?.shopName || partner?.full_name || partner?.shop_name || 'Unknown',
-        partnerAvatar: partnerProfile?.shopLogo || partnerProfile?.profileImage || null,
+        partnerName: partnerName,
+        partnerAvatar: partnerAvatar,
         lastMessage: conv.lastMessage || 'No messages yet',
         lastMessageTime: conv.lastMessageTime,
         unreadCount: conv.unreadCount,
@@ -658,27 +762,177 @@ router.get("/conversations", auth, async (req, res) => {
   }
 });
 
-// PUT /api/chat/mark-read/:sellerId - Mark messages as read
-router.put("/mark-read/:sellerId", auth, async (req, res) => {
+// PUT /api/chat/mark-read/:partnerId - Mark messages as read
+router.put("/mark-read/:partnerId", auth, async (req, res) => {
   try {
-    const { sellerId } = req.params;
-    const buyerId = req.user.id;
+    const { partnerId } = req.params;
+    const currentUserId = req.user.id;
     const userRole = req.user.role;
     
-    console.log('💬 Marking messages as read between buyer:', buyerId, 'and seller:', sellerId);
+    console.log('💬 Marking messages as read for user:', currentUserId, 'role:', userRole, 'partner:', partnerId);
     
-    // Since we don't have is_read column in current schema, just return success
-    // This is a placeholder for when the proper schema is implemented
-    console.log('⚠️ Mark as read not implemented with current schema - returning success');
+    let updateQuery;
+    let buyerId, sellerId;
+    
+    if (userRole === 'buyer') {
+      // Buyer marking seller's messages as read
+      buyerId = currentUserId;
+      sellerId = partnerId;
+      
+      console.log('👤 BUYER marking SELLER messages as read');
+      console.log('📋 Updating messages where buyer_id =', buyerId, 'seller_id =', sellerId, 'sender_id =', sellerId);
+      
+      // Mark all messages FROM the seller (sender_id = seller) as read
+      updateQuery = supabase
+        .from('messages')
+        .update({ is_read: true })
+        .eq('buyer_id', buyerId)
+        .eq('seller_id', sellerId)
+        .eq('sender_id', sellerId) // Only mark seller's messages as read
+        .eq('is_read', false);
+        
+    } else if (userRole === 'seller') {
+      // Seller marking buyer's messages as read
+      sellerId = currentUserId;
+      buyerId = partnerId;
+      
+      console.log('👤 SELLER marking BUYER messages as read');
+      console.log('📋 Updating messages where seller_id =', sellerId, 'buyer_id =', buyerId, 'sender_id =', buyerId);
+      
+      // Mark all messages FROM the buyer (sender_id = buyer) as read
+      updateQuery = supabase
+        .from('messages')
+        .update({ is_read: true })
+        .eq('seller_id', sellerId)
+        .eq('buyer_id', buyerId)
+        .eq('sender_id', buyerId) // Only mark buyer's messages as read
+        .eq('is_read', false);
+    } else {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid user role' 
+      });
+    }
+    
+    const { data, error } = await updateQuery;
+    
+    if (error) {
+      console.error('❌ Error marking messages as read:', error);
+      console.error('❌ Error details:', JSON.stringify(error, null, 2));
+      // Don't throw error - just log it and return success
+      console.log('⚠️ Continuing despite error');
+    } else {
+      console.log('✅ Messages marked as read successfully');
+      console.log('📊 Updated rows:', data);
+    }
     
     res.json({ 
       success: true, 
-      message: 'Messages marked as read (placeholder)',
-      note: 'Mark as read functionality requires proper database schema'
+      message: 'Messages marked as read successfully'
     });
   } catch (error) {
-    console.error('Error in markRead:', error);
+    console.error('❌ Error in markRead:', error);
     res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// POST /api/chat/send-order-notification - Send automated order status notification
+router.post("/send-order-notification", auth, async (req, res) => {
+  try {
+    console.log('🔔 POST /api/chat/send-order-notification - Sending order status notification');
+    console.log('📥 Request body:', req.body);
+    
+    const { buyerId, orderNumber, status, productData, trackingNumber } = req.body;
+    const sellerId = req.user.id; // Current user is the seller
+    const userRole = req.user.role;
+
+    console.log('🔔 Notification from seller:', sellerId, 'to buyer:', buyerId);
+    console.log('📦 Order:', orderNumber, 'Status:', status);
+    console.log('🛍️ Product data:', productData);
+
+    if (!buyerId || !orderNumber || !status) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Buyer ID, order number, and status are required' 
+      });
+    }
+
+    // Create automated message based on order status
+    let message = '';
+    switch (status.toLowerCase()) {
+      case 'confirmed':
+        message = `✅ Great news! Your order #${orderNumber} has been confirmed and is being prepared for processing.`;
+        break;
+      case 'processing':
+        message = `📦 Your order #${orderNumber} is now being processed. We're preparing your items for shipment.`;
+        break;
+      case 'shipped':
+        message = trackingNumber 
+          ? `🚚 Your order #${orderNumber} has been shipped! Tracking Number: ${trackingNumber}. You'll receive it soon!`
+          : `🚚 Your order #${orderNumber} has been shipped and is on its way to you!`;
+        break;
+      case 'delivered':
+        message = `🎉 Your order #${orderNumber} has been delivered! We hope you enjoy your purchase. Thank you for shopping with us!`;
+        break;
+      case 'cancelled':
+        message = `❌ Your order #${orderNumber} has been cancelled. If you have any questions, please feel free to contact us.`;
+        break;
+      case 'review_request':
+        message = `⭐ How was your experience? Please take a moment to review this product and rate our shop! Your feedback helps us improve and helps other buyers make informed decisions. Thank you! 💙`;
+        break;
+      default:
+        message = `📋 Order #${orderNumber} status updated to: ${status}`;
+    }
+
+    // Insert notification message with full product data
+    const now = new Date();
+    const insertData = {
+      buyer_id: buyerId,
+      seller_id: sellerId,
+      sender_id: sellerId, // Seller is sending the notification
+      message: message,
+      product_data: productData ? JSON.stringify({ 
+        ...productData,
+        orderNumber: orderNumber,
+        status: status,
+        trackingNumber: trackingNumber,
+        isOrderNotification: true 
+      }) : null,
+      created_at: now.toISOString(),
+      timestamp: now.toISOString()
+    };
+    
+    console.log('📝 Inserting order notification:', insertData);
+    
+    const { data: newMessage, error: msgError } = await supabase
+      .from('messages')
+      .insert(insertData)
+      .select()
+      .single();
+
+    if (msgError) {
+      console.error('❌ Error creating notification:', msgError);
+      throw msgError;
+    }
+
+    console.log('✅ Order notification sent successfully:', newMessage.id);
+
+    res.json({ 
+      success: true, 
+      message: 'Order notification sent successfully',
+      notification: {
+        id: newMessage.id,
+        message: newMessage.message,
+        timestamp: newMessage.created_at
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error sending order notification:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to send order notification: ' + (error.message || 'Unknown error'),
+      error: error.message
+    });
   }
 });
 

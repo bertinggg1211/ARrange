@@ -11,16 +11,26 @@ export default StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F5F5',
   },
+  safeAreaOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 50,
+    backgroundColor: '#F5F5F5',
+    zIndex: 1000,
+  },
   mainScrollContainer: {
     flex: 1,
   },
   scrollContentContainer: {
     flexGrow: 1,
     paddingBottom: 100, // Space for bottom action bar
+    paddingTop: 0,
   },
   mainContainer: {
     backgroundColor: '#FFFFFF',
-    marginTop: 35,
+    marginTop: 80,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 20,
@@ -1049,23 +1059,6 @@ export default StyleSheet.create({
     color: "#FF8B47",
     marginLeft: 8,
   },
-  reviewButton: {
-    flex: 1,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: "#FFF5F0",
-    borderWidth: 2,
-    borderColor: "#FF8B47",
-    justifyContent: "center",
-    alignItems: "center",
-    flexDirection: "row",
-  },
-  reviewText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#FF8B47",
-    marginLeft: 8,
-  },
   buyNowButton: {
     flex: 1,
     height: 50,
@@ -1358,15 +1351,13 @@ export default StyleSheet.create({
     justifyContent: 'flex-end',
   },
   enhancedModalContent: {
-    minHeight: '60%',
-    maxHeight: '90%',
+    height: '95%',
   },
   enhancedModalContainer: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    minHeight: '60%',
-    maxHeight: '90%',
+    height: '100%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -8 },
     shadowOpacity: 0.25,
@@ -2298,19 +2289,28 @@ export default StyleSheet.create({
   modernViewSpecsButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+    justifyContent: 'center',
+    backgroundColor: '#FF8B47',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 24,
+    minWidth: 120,
+    minHeight: 44,
+    shadowColor: '#FF8B47',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   
   modernViewSpecsText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#FF8B47',
-    marginRight: 4,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginRight: 6,
   },
 
   // Modern Tab Section Styles
@@ -2369,6 +2369,133 @@ export default StyleSheet.create({
   // Description Section Styles
   modernDescriptionSection: {
     paddingTop: 8,
+    paddingBottom: 0,
+  },
+  
+  // Enhanced Description Header
+  descriptionHeaderBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: '#FF8B47',
+  },
+  
+  descriptionIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFF5F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  
+  descriptionHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    flex: 1,
+  },
+  
+  // Main Description Card
+  descriptionCard: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 0,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF8B47',
+  },
+  
+  modernDescriptionText: {
+    fontSize: 15,
+    lineHeight: 24,
+    color: '#2C3E50',
+    fontWeight: '400',
+    letterSpacing: 0.3,
+  },
+  
+  // Product Highlights Section
+  highlightsSection: {
+    marginBottom: 20,
+  },
+  
+  highlightsTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    marginBottom: 12,
+  },
+  
+  highlightsList: {
+    gap: 10,
+  },
+  
+  highlightItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  
+  highlightIconBox: {
+    marginRight: 12,
+  },
+  
+  highlightText: {
+    fontSize: 14,
+    color: '#374151',
+    fontWeight: '500',
+    flex: 1,
+  },
+  
+  // Specifications Section
+  specsSection: {
+    marginTop: 4,
+  },
+  
+  specsTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    marginBottom: 12,
+  },
+  
+  specsGrid: {
+    gap: 12,
+  },
+  
+  specItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  
+  specContent: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  
+  specLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  
+  specValue: {
+    fontSize: 14,
+    color: '#1A1A1A',
+    fontWeight: '600',
   },
   
   descriptionHeader: {
@@ -2380,22 +2507,8 @@ export default StyleSheet.create({
     borderBottomColor: '#F0F0F0',
   },
   
-  descriptionHeaderTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1A1A1A',
-    marginLeft: 12,
-  },
-  
   descriptionContent: {
     gap: 24,
-  },
-  
-  modernDescriptionText: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#4A4A4A',
-    fontWeight: '400',
   },
   
   featuresSection: {

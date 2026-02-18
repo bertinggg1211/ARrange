@@ -50,16 +50,6 @@ export default function EditProfileInfo({ navigation }) {
           console.log('Loaded seller profile:', JSON.stringify(resp, null, 2));
           if (resp?.seller) {
             const s = resp.seller;
-            console.log('Business description from server:', s.sellerProfile?.businessDescription);
-            // Debug: Log seller profile data
-            console.log('📝 EditShopInfo - Seller profile data:', {
-              shopName: s.shopName,
-              businessName: s.sellerProfile?.businessName,
-              shopLogo: s.sellerProfile?.shopLogo,
-              profileImage: s.sellerProfile?.profileImage,
-              shopBanner: s.sellerProfile?.shopBanner,
-              businessDescription: s.sellerProfile?.businessDescription
-            });
             
             // Construct image URIs
             const shopLogoUri = s.sellerProfile?.shopLogo 
@@ -72,21 +62,12 @@ export default function EditProfileInfo({ navigation }) {
               ? (s.sellerProfile.shopBanner.startsWith('http') ? s.sellerProfile.shopBanner : `${BASE_URL}${s.sellerProfile.shopBanner}`)
               : null;
             
-            console.log('🖼️ EditShopInfo - Constructed URIs:', {
-              shopLogoUri,
-              profileImageUri,
-              bannerUri,
-              willUseShopLogo: !!shopLogoUri,
-              willUseProfileImage: !shopLogoUri && !!profileImageUri
-            });
-            
             setShopData({
               name: s.shopName || s.sellerProfile?.businessName || '',
               image: shopLogoUri ? { uri: shopLogoUri } : (profileImageUri ? { uri: profileImageUri } : null),
               banner: bannerUri ? { uri: bannerUri } : null,
               description: s.sellerProfile?.businessDescription || ''
             });
-            console.log('Set shop data with description:', s.sellerProfile?.businessDescription || '');
           }
         } catch (e) {
           console.error('Error loading profile:', e);
@@ -126,53 +107,22 @@ export default function EditProfileInfo({ navigation }) {
         },
       };
       
-      console.log('Saving payload:', JSON.stringify(payload, null, 2));
-      console.log('Shop description being saved:', shopData.description);
-      console.log('🖼️ Image Debug:');
-      console.log('- shopData.image:', shopData.image);
-      console.log('- shopData.banner:', shopData.banner);
-      
       // Attach files if the user selected new ones (normalized fields for API)
       if (shopData.image && shopData.image.uri && !shopData.image.uri.startsWith('http')) {
-        console.log('✅ Adding shopLogo to payload');
         payload.shopLogo = {
           uri: shopData.image.uri,
           type: shopData.image.type || 'image/jpeg',
           name: shopData.image.name || 'shop-logo.jpg',
         };
-      } else {
-        console.log('❌ NOT adding shopLogo - conditions not met');
       }
       if (shopData.banner && shopData.banner.uri && !shopData.banner.uri.startsWith('http')) {
-        console.log('✅ Adding shopBanner to payload');
         payload.shopBanner = {
           uri: shopData.banner.uri,
           type: shopData.banner.type || 'image/jpeg',
           name: shopData.banner.name || 'shop-banner.jpg',
         };
-      } else {
-        console.log('❌ NOT adding shopBanner - conditions not met');
       }
-      console.log('🚀 Final payload being sent:', JSON.stringify(payload, null, 2));
-      console.log('🔍 Description in payload:', payload.sellerProfile?.businessDescription);
       const resp = await updateSellerProfile(payload);
-      console.log('📥 Server response:', JSON.stringify(resp, null, 2));
-      console.log('📥 Server response sellerProfile:', JSON.stringify(resp?.seller?.sellerProfile, null, 2));
-      console.log('🔍 Description in response:', resp?.seller?.sellerProfile?.businessDescription);
-      
-      // Debug: Log the exact URIs that will be used by buyers
-      if (resp?.seller?.sellerProfile) {
-        const sp = resp.seller.sellerProfile;
-        console.log('🔗 URIs that buyers will see in Home.jsx:', {
-          shopLogo: sp.shopLogo,
-          profileImage: sp.profileImage,
-          shopBanner: sp.shopBanner,
-          buyerWillSee: sp.shopLogo || sp.profileImage,
-          constructedBuyerURI: (sp.shopLogo || sp.profileImage)?.startsWith('http') 
-            ? (sp.shopLogo || sp.profileImage)
-            : `${BASE_URL}${sp.shopLogo || sp.profileImage}`
-        });
-      }
       // Sync auth user for immediate UI update
       if (resp?.success && resp?.seller && updateUser) {
         await updateUser({
@@ -181,7 +131,9 @@ export default function EditProfileInfo({ navigation }) {
           phone: resp.seller.phone,
           shopName: resp.seller.shopName,
           sellerProfile: resp.seller.sellerProfile,
+          seller_profile: resp.seller.sellerProfile, // Also set snake_case version for consistency
         });
+        
         // Update local previews to server URLs to persist through reloads
         const sp = resp.seller.sellerProfile;
         setShopData((prev) => ({
@@ -236,20 +188,16 @@ export default function EditProfileInfo({ navigation }) {
       const name = (uri.split('/').pop()) || (isBanner ? 'shop-banner.jpg' : 'shop-profile.jpg');
       const normalizedUri = (uri.startsWith('file:') || uri.startsWith('content:')) ? uri : `file://${uri}`;
       
-      console.log('📸 Image selected from gallery:', { isBanner, isShopProfile, uri: normalizedUri, mime, name });
-      
       if (isBanner) {
-        setShopData((prev) => {
-          const newData = { ...prev, banner: { uri: normalizedUri, type: mime, name } };
-          console.log('🖼️ Updated shopData with banner:', newData.banner);
-          return newData;
-        });
+        setShopData((prev) => ({
+          ...prev,
+          banner: { uri: normalizedUri, type: mime, name }
+        }));
       } else if (isShopProfile) {
-        setShopData((prev) => {
-          const newData = { ...prev, image: { uri: normalizedUri, type: mime, name } };
-          console.log('🖼️ Updated shopData with shop profile image:', newData.image);
-          return newData;
-        });
+        setShopData((prev) => ({
+          ...prev,
+          image: { uri: normalizedUri, type: mime, name }
+        }));
       }
     } catch (e) {
       const msg = String(e?.message || '').toLowerCase();
@@ -283,20 +231,16 @@ export default function EditProfileInfo({ navigation }) {
       const name = (uri.split('/').pop()) || (isBanner ? 'shop-banner.jpg' : 'shop-profile.jpg');
       const normalizedUri = (uri.startsWith('file:') || uri.startsWith('content:')) ? uri : `file://${uri}`;
       
-      console.log('📸 Image selected from camera:', { isBanner, isShopProfile, uri: normalizedUri, mime, name });
-      
       if (isBanner) {
-        setShopData((prev) => {
-          const newData = { ...prev, banner: { uri: normalizedUri, type: mime, name } };
-          console.log('🖼️ Updated shopData with banner:', newData.banner);
-          return newData;
-        });
+        setShopData((prev) => ({
+          ...prev,
+          banner: { uri: normalizedUri, type: mime, name }
+        }));
       } else if (isShopProfile) {
-        setShopData((prev) => {
-          const newData = { ...prev, image: { uri: normalizedUri, type: mime, name } };
-          console.log('🖼️ Updated shopData with shop profile image:', newData.image);
-          return newData;
-        });
+        setShopData((prev) => ({
+          ...prev,
+          image: { uri: normalizedUri, type: mime, name }
+        }));
       }
     } catch (e) {
       const msg = String(e?.message || '').toLowerCase();
@@ -363,7 +307,7 @@ export default function EditProfileInfo({ navigation }) {
 
       Alert.alert('Success', `${type === 'banner' ? 'Banner' : 'Shop profile picture'} deleted successfully!`);
     } catch (error) {
-      console.error('❌ Error deleting image:', error);
+      console.error('Error deleting image:', error);
       Alert.alert('Error', error.message || 'Failed to delete image. Please try again.');
     } finally {
       setIsLoading(false);
@@ -423,12 +367,6 @@ export default function EditProfileInfo({ navigation }) {
                   source={{ uri: shopData.banner.uri }} 
                   style={styles.modernBannerImage}
                   resizeMode="cover"
-                  onError={(error) => {
-                    console.warn('❌ Failed to load shop banner image:', shopData.banner.uri, error.nativeEvent?.error);
-                  }}
-                  onLoad={() => {
-                    console.log('✅ Shop banner image loaded successfully:', shopData.banner.uri);
-                  }}
                 />
               ) : (
                 <View style={styles.modernBannerPlaceholder}>
@@ -477,12 +415,6 @@ export default function EditProfileInfo({ navigation }) {
                     source={{ uri: shopData.image.uri }} 
                     style={styles.modernProfileImage}
                     resizeMode="cover"
-                    onError={(error) => {
-                      console.warn('❌ Failed to load shop profile image:', shopData.image.uri, error.nativeEvent?.error);
-                    }}
-                    onLoad={() => {
-                      console.log('✅ Shop profile image loaded successfully:', shopData.image.uri);
-                    }}
                   />
                 ) : (
                   <View style={styles.modernProfilePlaceholder}>

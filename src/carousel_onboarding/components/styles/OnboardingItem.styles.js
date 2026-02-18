@@ -17,13 +17,15 @@ export default StyleSheet.create ({
     fontWeight: '800',
     fontSize: 28,
     marginBottom: 10,
-    color: '#493d8a',
+    color: '#1A1A1A',        // Changed to app's primary dark text color
     textAlign: 'center',
   },
   description: {
-    fontWeight: '300',
-    color: '#62656b',
+    fontWeight: '400',        // Slightly bolder for better readability
+    fontSize: 16,             // Added explicit font size
+    color: '#666666',         // Changed to app's secondary text color
     textAlign: 'center',
     paddingHorizontal: 64,
+    lineHeight: 24,           // Added for better text spacing
   },
 });

@@ -18,6 +18,7 @@ import { useLikes } from "../../context/LikesContext";
 import { useCart } from "../../context/CartContext";
 import { getProducts } from "../../api/productApi";
 import { getMainImageUri } from "../../utils/imageUtils";
+import ProductRatingBadge from "../../components/ProductRatingBadge";
 
 export default function ViewProducts({ navigation, route }) {
   const insets = useSafeAreaInsets();
@@ -154,6 +155,16 @@ export default function ViewProducts({ navigation, route }) {
               console.error('❌ Product image load failed:', error.nativeEvent.error);
             }}
           />
+          {/* Rating Badge */}
+          {item.rating > 0 && (
+            <View style={{ position: 'absolute', top: 8, left: 8 }}>
+              <ProductRatingBadge 
+                rating={item.rating} 
+                reviewCount={item.reviewCount}
+                size="small"
+              />
+            </View>
+          )}
           <View style={styles.productInfo}>
             <Text style={styles.productName} numberOfLines={2}>{item.name}</Text>
             <Text style={styles.productPrice}>{formattedPrice}</Text>

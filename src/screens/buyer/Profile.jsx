@@ -14,7 +14,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from "react-native-vector-icons/Ionicons";
 import CustomAlert from "../../components/CustomAlert";
-import ServerConnection from "../../components/ServerConnection";
+import AccountDeletedModal from "../../components/AccountDeletedModal";
+import DeleteAccountModal from "../../components/DeleteAccountModal";
 import { useAuth } from "../../context/AuthContext";
 import { useCart } from "../../context/CartContext";
 import { useLikes } from "../../context/LikesContext";
@@ -22,7 +23,6 @@ import styles from "./styles/Profile.style";
 import { useIsFocused } from "@react-navigation/native";
 import { getUserProfile, getUserStats, deleteUserAccount } from "../../api/userApi";
 import { BASE_URL } from "../../api/api";
-import { clearUserOrders } from "../../api/adminApi";
 
 export default function Profile({ navigation }) {
   const { logout, user } = useAuth();
@@ -40,7 +40,8 @@ export default function Profile({ navigation }) {
   const [showLogoutAlert, setShowLogoutAlert] = useState(false);
   const [showDeleteAccountAlert, setShowDeleteAccountAlert] = useState(false);
   const [showErrorAlert, setShowErrorAlert] = useState(false);
-  const [showServerConnection, setShowServerConnection] = useState(false);
+  const [showAccountDeletedModal, setShowAccountDeletedModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Helper function to calculate time since account creation
   const getTimeSinceCreation = (createdAt) => {
@@ -157,91 +158,68 @@ export default function Profile({ navigation }) {
     }
   };
 
-  // Clear user orders function
-  const handleClearOrders = () => {
-    Alert.alert(
-      'Clear Orders',
-      'Are you sure you want to clear all your orders? This action cannot be undone.',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Clear',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              console.log('🗑️ Clearing user orders...');
-              const result = await clearUserOrders(user?.id);
-              
-              if (result.success) {
-                Alert.alert('Success', 'All orders cleared successfully!');
-                // Refresh stats after clearing orders
-                const statsResp = await getUserStats();
-                if (statsResp.success) {
-                  setUserStats(statsResp.stats);
-                }
-              } else {
-                Alert.alert('Error', result.error || 'Failed to clear orders');
-              }
-            } catch (error) {
-              console.error('❌ Error clearing orders:', error);
-              Alert.alert('Error', 'Failed to clear orders');
-            }
-          },
-        },
-      ]
-    );
-  };
-
   // Delete account handler
   const handleDeleteAccount = () => {
     console.log('🗑️ Delete account button pressed');
     setShowDeleteAccountAlert(true);
   };
 
-  const confirmDeleteAccount = async () => {
-    console.log('🗑️ Delete account confirmed by user');
-    setShowDeleteAccountAlert(false);
+  const handleCloseDeleteModal = () => {
+    if (!isDeleting) {
+      setShowDeleteAccountAlert(false);
+    }
+  };
+
+  const performDeleteAccount = async () => {
     try {
-      console.log('🗑️ Starting account deletion process...');
+      setIsDeleting(true);
+      console.log('🗑️ Starting comprehensive account deletion process...');
       
-      // Clear local data FIRST (before API call)
-      console.log('🗑️ Clearing local data...');
-      await AsyncStorage.clear();
-      
-      // Clear contexts (local state only)
-      // These will fail gracefully when no auth token is present
-      clearCart();
-      removeFromLikes();
-      
-      // Call the delete account API
-      console.log('🗑️ Calling delete account API...');
       const result = await deleteUserAccount();
+      console.log('✅ Account deletion result:', result);
       
       if (result.success) {
-        console.log('✅ Account deleted successfully');
+        console.log('✅ Account deleted successfully from server');
         
-        // Logout and redirect to login
-        await logout();
+        // Close delete confirmation modal
+        setShowDeleteAccountAlert(false);
+        setIsDeleting(false);
         
-        Alert.alert(
-          'Account Deleted',
-          'Your account has been successfully deleted. All your data has been removed.',
-          [{ text: 'OK' }]
-        );
+        // Show custom success modal FIRST (before logout)
+        setShowAccountDeletedModal(true);
       } else {
         console.error('❌ Failed to delete account:', result.message);
+        setIsDeleting(false);
+        setShowDeleteAccountAlert(false);
         Alert.alert('Error', result.message || 'Failed to delete account');
       }
+      
     } catch (error) {
       console.error('❌ Error deleting account:', error);
-      // Even if API fails, we've already cleared local data
-      // So we should still logout
-      await logout();
-      Alert.alert('Error', 'Failed to delete account completely. You have been logged out.');
+      setIsDeleting(false);
+      setShowDeleteAccountAlert(false);
+      
+      Alert.alert(
+        "❌ Deletion Error",
+        `Failed to completely delete account: ${error.message}\n\n` +
+        "Some data may still remain in the system. Please contact support if needed.",
+        [{ text: "OK" }]
+      );
     }
+  };
+
+  const handleAccountDeletedModalClose = async () => {
+    console.log('🗑️ Account deleted modal closed, completing cleanup...');
+    
+    // Clear local storage - this will clear the auth token and all local data
+    console.log('🗑️ Clearing local storage...');
+    await AsyncStorage.clear();
+    
+    // Logout (clears auth state, and contexts will auto-clear due to useEffect watching user)
+    await logout();
+    
+    // Close modal
+    setShowAccountDeletedModal(false);
   };
 
   return (
@@ -464,43 +442,12 @@ export default function Profile({ navigation }) {
           <View style={styles.menuContainer}>
             <TouchableOpacity
               style={styles.menuItem}
-              onPress={handleClearOrders}
-            >
-              <View style={styles.menuIconContainer}>
-                <Icon name="trash-outline" size={22} color="#FF3B30" />
-              </View>
-              <Text style={[styles.menuText, { color: '#FF3B30' }]}>Clear Orders</Text>
-              <Icon name="chevron-forward-outline" size={20} color="#999" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.menuItem}
               onPress={() => navigation.navigate("Notifications")}
             >
               <View style={styles.menuIconContainer}>
                 <Icon name="notifications-outline" size={22} color="#FF8B47" />
               </View>
               <Text style={styles.menuText}>Notifications</Text>
-              <Icon name="chevron-forward-outline" size={20} color="#999" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => navigation.navigate("Privacy")}
-            >
-              <View style={styles.menuIcon}>
-                <Icon name="shield-outline" size={20} color="#FF8B47" />
-              </View>
-              <Text style={styles.menuText}>Privacy</Text>
-              <Icon name="chevron-forward-outline" size={20} color="#999" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => setShowServerConnection(true)}
-            >
-              <View style={styles.menuIcon}>
-                <Icon name="server-outline" size={20} color="#FF8B47" />
-              </View>
-              <Text style={styles.menuText}>Server Connection</Text>
               <Icon name="chevron-forward-outline" size={20} color="#999" />
             </TouchableOpacity>
 
@@ -540,22 +487,16 @@ export default function Profile({ navigation }) {
         onClose={() => setShowErrorAlert(false)}
       />
 
-      <CustomAlert
+      <DeleteAccountModal
         visible={showDeleteAccountAlert}
-        title="Delete Account"
-        message="Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently removed."
-        type="error"
-        onClose={() => setShowDeleteAccountAlert(false)}
-        onConfirm={confirmDeleteAccount}
+        onClose={handleCloseDeleteModal}
+        onConfirm={performDeleteAccount}
+        loading={isDeleting}
       />
 
-      <ServerConnection
-        visible={showServerConnection}
-        onClose={() => setShowServerConnection(false)}
-        onServerChanged={(serverUrl) => {
-          console.log('🌐 Server changed to:', serverUrl);
-          // Optionally refresh the app or show success message
-        }}
+      <AccountDeletedModal
+        visible={showAccountDeletedModal}
+        onClose={handleAccountDeletedModalClose}
       />
     </SafeAreaView>
   );

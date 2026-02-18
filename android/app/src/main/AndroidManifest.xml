@@ -32,6 +32,20 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
+        <!-- Deep Linking for Password Reset -->
+        <intent-filter>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="arrange" android:host="reset-password" />
+        </intent-filter>
+        <!-- HTTPS Deep Links for Supabase Auth -->
+        <intent-filter android:autoVerify="true">
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" android:host="uqabqigsgrmtylcgheqg.supabase.co" android:pathPrefix="/auth/v1/verify" />
+        </intent-filter>
       </activity>
     </application>
 </manifest>

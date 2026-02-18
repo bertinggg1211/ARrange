@@ -1,5 +1,61 @@
 import { authApi, BASE_URL } from './api';
 
+// Create draft product for AR generation (minimal save without images)
+export const createDraftProduct = async (payload = {}) => {
+  try {
+    const token = await authApi.getStoredToken();
+    
+    if (!token) {
+      throw new Error('No authentication token found. Please login again.');
+    }
+    
+    console.log('📝 Creating draft product for AR generation...');
+    
+    // Send minimal data as JSON (no images, no heavy uploads)
+    const draftData = {
+      name: payload.name,
+      price: payload.price,
+      description: payload.description,
+      category: payload.category,
+      stock: payload.stock || 1,
+      status: 'draft', // Mark as draft
+      isDraft: true
+    };
+    
+    const url = `${BASE_URL}/api/seller/products/draft`;
+    console.log('🌐 Making draft request to:', url);
+    
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(draftData),
+    });
+
+    const contentType = res.headers.get('content-type');
+    let data;
+    
+    if (contentType && contentType.includes('application/json')) {
+      data = await res.json();
+    } else {
+      const text = await res.text();
+      throw new Error(`Server returned ${contentType || 'unknown content type'}.`);
+    }
+
+    if (!res.ok) {
+      throw new Error(data?.message || 'Failed to create draft product');
+    }
+
+    console.log('✅ Draft product created:', data);
+    return data;
+  } catch (error) {
+    console.error('❌ Error creating draft product:', error);
+    throw error;
+  }
+};
+
 export const createProduct = async (payload = {}) => {
   try {
     const token = await authApi.getStoredToken();

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,8 @@ import {
   Alert,
   DeviceEventEmitter,
   StatusBar,
-  RefreshControl
+  RefreshControl,
+  Animated
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -49,6 +50,10 @@ export default function Home({ navigation }) {
   const [showDeletionSuccess, setShowDeletionSuccess] = useState(false);
   const [deletionResult, setDeletionResult] = useState(null);
   
+  // Menu state for each product (using product ID as key)
+  const [expandedMenus, setExpandedMenus] = useState({});
+  const menuAnimations = useRef({});
+  
   // No recent orders yet - placeholder data
   const recentOrders = [];
 
@@ -57,36 +62,27 @@ export default function Home({ navigation }) {
 
   // Listen for profile image updates
   useEffect(() => {
-    // Load initial notification count
     loadNotificationCount();
     
     // Set up periodic refresh for new AR completions (every 2 minutes to reduce server load)
     const notificationRefreshInterval = setInterval(() => {
       loadNotificationCount();
-    }, 120000); // 2 minutes instead of 30 seconds
+    }, 120000);
 
     const profileUpdateListener = DeviceEventEmitter.addListener('PROFILE_IMAGE_UPDATED', () => {
-      console.log('📸 Profile image updated, refreshing Home.jsx');
       fetchSellerProfile();
     });
 
     const shopUpdateListener = DeviceEventEmitter.addListener('SHOP_PROFILE_UPDATED', () => {
-      console.log('🏪 Shop profile updated, refreshing Home.jsx');
-      console.log('🏪 Current profile before shop refresh:', currentProfile?.shop_name, currentProfile?.seller_profile?.businessDescription);
-      // Clear current profile to force refresh
       setSellerProfile(null);
       fetchSellerProfile();
     });
 
-    // Listen for new AR notifications
     const arNotificationListener = DeviceEventEmitter.addListener('KIRI_MODEL_READY', () => {
-      console.log('🔔 New AR notification received');
       loadNotificationCount();
     });
 
-    // Listen for notification updates (when user reads/deletes notifications)
     const notificationUpdateListener = DeviceEventEmitter.addListener('NOTIFICATIONS_UPDATED', () => {
-      console.log('🔔 Notifications updated, refreshing count');
       loadNotificationCount();
     });
 
@@ -121,45 +117,22 @@ export default function Home({ navigation }) {
     return 'Good Evening';
   };
 
-  // Debug logging to see what data we have
-  React.useEffect(() => {
-    if (currentProfile) {
-      console.log('🏪 Shop Card Debug - Available data:');
-      console.log('   - shop_name:', currentProfile?.shop_name);
-      console.log('   - shopName:', currentProfile?.shopName);
-      console.log('   - fullName:', currentProfile?.fullName);
-      console.log('   - full_name:', currentProfile?.full_name);
-      console.log('   - seller_profile:', currentProfile?.seller_profile);
-      console.log('   - businessName:', currentProfile?.seller_profile?.businessName);
-      console.log('   - ownerName:', currentProfile?.seller_profile?.ownerName);
-      console.log('   - businessDescription:', currentProfile?.seller_profile?.businessDescription);
-      console.log('   - shopLogo:', currentProfile?.seller_profile?.shopLogo);
-      console.log('   - shopBanner:', currentProfile?.seller_profile?.shopBanner);
-      console.log('🏪 Final values:');
-      console.log('   - shopName:', shopName);
-      console.log('   - ownerName:', ownerName);
-    }
-  }, [currentProfile, shopName, ownerName]);
 
   // Function to load notification count with better error handling
   const loadNotificationCount = async () => {
     try {
       const token = await AsyncStorage.getItem('authToken');
       if (!token) {
-        console.warn('No auth token found, cannot load notification count');
         setUnreadNotifications(0);
         return;
       }
 
-      console.log('🔔 Loading notification count...');
       const result = await notificationApi.getNotifications(token);
       
       if (result.success) {
         const unreadCount = result.notifications.filter(n => !n.read).length;
         setUnreadNotifications(unreadCount);
-        console.log('✅ Notification count loaded:', unreadCount);
       } else {
-        console.error('Failed to load notifications:', result.error);
         // Fallback to local storage
         const stored = await AsyncStorage.getItem('seller_notifications');
         if (stored) {
@@ -171,7 +144,6 @@ export default function Home({ navigation }) {
         }
       }
     } catch (error) {
-      // Set default value on error
       setUnreadNotifications(0);
     }
   };
@@ -180,8 +152,6 @@ export default function Home({ navigation }) {
   const fetchSellerStats = async () => {
     try {
       setLoadingStats(true);
-      console.log('🔄 Fetching seller stats from backend...');
-      
       const token = await AsyncStorage.getItem('authToken');
       
       const response = await fetch(`${BASE_URL}/api/seller/stats`, {
@@ -192,12 +162,9 @@ export default function Home({ navigation }) {
         },
       });
       
-      console.log('✅ Stats response received:', response.status);
-      
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.stats) {
-          console.log('✅ Seller stats loaded successfully:', data.stats);
           setStats({
             revenue: data.stats.revenue || 0,
             orders: data.stats.orders || 0,
@@ -207,8 +174,6 @@ export default function Home({ navigation }) {
           });
         }
       } else {
-        console.warn('⚠️ Stats request failed:', response.status);
-        // Fallback to basic stats
         setStats({
           revenue: 0,
           orders: 0,
@@ -218,8 +183,6 @@ export default function Home({ navigation }) {
         });
       }
     } catch (error) {
-      console.error('❌ Error fetching seller stats:', error);
-      // Keep default stats on error
       setStats({ 
         revenue: 0, 
         orders: 0, 
@@ -235,9 +198,7 @@ export default function Home({ navigation }) {
   // Function to fetch seller profile using simple user API (like buyer)
   const fetchSellerProfile = async () => {
     try {
-      console.log('🔄 Fetching seller profile using simple user API...');
-      
-      const token = await require('@react-native-async-storage/async-storage').default.getItem('authToken');
+      const token = await AsyncStorage.getItem('authToken');
       
       const response = await fetch(`${BASE_URL}/api/user/profile?t=${Date.now()}`, {
         method: 'GET',
@@ -247,26 +208,13 @@ export default function Home({ navigation }) {
         },
       });
       
-      console.log('✅ Profile response received:', response.status);
-      
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.user) {
-          console.log('✅ Seller profile loaded successfully');
-          console.log('🔍 New profile data:', {
-            shopName: data.user.shopName || data.user.shop_name,
-            businessName: data.user.sellerProfile?.businessName,
-            businessDescription: data.user.sellerProfile?.businessDescription,
-            shopLogo: data.user.sellerProfile?.shopLogo,
-            shopBanner: data.user.sellerProfile?.shopBanner
-          });
           setSellerProfile(data.user);
         }
-      } else {
-        console.warn('⚠️ Profile request failed:', response.status);
       }
     } catch (error) {
-      console.error('❌ Error fetching seller profile:', error);
       // Keep existing profile or user data on error
     }
   };
@@ -275,9 +223,7 @@ export default function Home({ navigation }) {
   const fetchSellerProducts = async () => {
     try {
       setLoadingProducts(true);
-      console.log('🔄 Fetching seller products using direct fetch...');
-      
-      const token = await require('@react-native-async-storage/async-storage').default.getItem('authToken');
+      const token = await AsyncStorage.getItem('authToken');
       
       const response = await fetch(`${BASE_URL}/api/seller/products`, {
         method: 'GET',
@@ -287,24 +233,18 @@ export default function Home({ navigation }) {
         },
       });
       
-      console.log('✅ Products response received:', response.status);
-      
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
           const products = data.products || [];
-          console.log('✅ Seller products loaded successfully:', products.length);
           setSellerProducts(products);
         } else {
-          console.warn('⚠️ Products response not successful');
           setSellerProducts([]);
         }
       } else {
-        console.warn('⚠️ Products request failed:', response.status);
         setSellerProducts([]);
       }
     } catch (error) {
-      console.error('❌ Error fetching seller products:', error);
       setSellerProducts([]);
     } finally {
       setLoadingProducts(false);
@@ -313,128 +253,51 @@ export default function Home({ navigation }) {
 
   // Handle product actions
   const handleProductAction = (action, product) => {
-    console.log('🔧 Product action triggered:', { action, productId: product?.id, productName: product?.name });
-    console.log('🔧 Navigation object:', !!navigation);
-    console.log('🔧 Navigation navigate function:', typeof navigation.navigate);
-    
     switch (action) {
       case 'edit':
-        console.log('✏️ Attempting to navigate to EditProducts with product:', {
-          id: product?.id,
-          name: product?.name,
-          price: product?.price,
-          category: product?.category
-        });
-        
-        // DEBUG: Log the full product object to see what data is available
-        console.log('🔍 FULL PRODUCT OBJECT BEING PASSED:', {
-          product: product,
-          hasName: !!product?.name,
-          hasPrice: !!product?.price,
-          hasDescription: !!product?.description,
-          hasCategory: !!product?.category,
-          hasStock: !!product?.stock,
-          hasBrand: !!product?.brand,
-          hasModel: !!product?.model,
-          hasDimensions: !!product?.dimensions,
-          hasWeight: !!product?.weight,
-          hasMaterial: !!product?.material,
-          hasWarranty: !!product?.warranty,
-          hasBulbType: !!product?.bulbType,
-          hasNumberOfBulbs: !!product?.numberOfBulbs,
-          hasVoltage: !!product?.voltage,
-          hasLedType: !!product?.ledType,
-          hasLumens: !!product?.lumens,
-          hasIsDimmable: product?.isDimmable !== undefined,
-          hasInstallationType: !!product?.installationType,
-          hasRoomType: !!product?.roomType,
-          hasColorOptions: !!product?.colorOptions,
-          hasSpecifications: !!product?.specifications,
-          hasImages: !!product?.images,
-          imagesCount: product?.images?.length || 0,
-          fullProductKeys: product ? Object.keys(product) : []
-        });
-        
-        try {
-          navigation.navigate('EditProducts', { product });
-          console.log('✅ Navigation call completed');
-        } catch (error) {
-          console.error('❌ Navigation error:', error);
-          Alert.alert('Navigation Error', 'Failed to open edit screen. Please try again.');
-        }
+        // Navigate immediately without any console logs or processing
+        navigation.navigate('EditProducts', { product });
         break;
       case 'delete':
         // Show delete confirmation popup
-        console.log('🗑️ Triggering delete confirmation for product:', product?.id);
         setProductToDelete(product);
         setShowDeleteConfirmation(true);
         break;
+      case 'duplicate':
+        // Handle duplicate action
+        Alert.alert('Duplicate', 'Duplicate feature coming soon!');
+        break;
       default:
-        console.log('Unknown action:', action);
+        break;
     }
   };
 
   // Handle delete confirmation
   const handleDeleteConfirm = async () => {
     if (!productToDelete) {
-      console.log('❌ No product to delete');
       return;
     }
     
     try {
       setDeletionLoading(true);
-      console.log('🗑️ Starting deletion process for product:', {
-        id: productToDelete.id,
-        name: productToDelete.name,
-        sellerId: productToDelete.seller_id
-      });
-      
-      // Call the delete API
-      console.log('📡 Calling deleteProduct API...');
-      console.log('📡 Product ID type:', typeof productToDelete.id);
-      console.log('📡 Product ID value:', productToDelete.id);
-      console.log('📡 Product ID stringified:', JSON.stringify(productToDelete.id));
-      
-      // Check authentication state
-      console.log('🔐 Current user:', user);
-      console.log('🔐 User ID:', user?.id);
-      console.log('🔐 User role:', user?.role);
       
       const response = await deleteProduct(productToDelete.id);
-      console.log('✅ Delete API response:', response);
       
       // Remove from local state immediately for better UX
-      console.log('🔄 Updating local state...');
-      setSellerProducts(prev => {
-        const filtered = prev.filter(p => p.id !== productToDelete.id);
-        console.log('📊 Products before deletion:', prev.length);
-        console.log('📊 Products after deletion:', filtered.length);
-        return filtered;
-      });
+      setSellerProducts(prev => prev.filter(p => p.id !== productToDelete.id));
       
       // Emit product deleted event for other screens
-      console.log('📡 Emitting SELLER_PRODUCT_DELETED event...');
       DeviceEventEmitter.emit('SELLER_PRODUCT_DELETED');
       
       // Close confirmation and show success
-      console.log('✅ Closing confirmation modal and showing success...');
       setShowDeleteConfirmation(false);
       setDeletionResult(response.deletionDetails);
       setShowDeletionSuccess(true);
       
       // Refresh products list to ensure consistency
-      console.log('🔄 Refreshing products list...');
       await fetchSellerProducts();
       
-      console.log('✅ Product deletion completed successfully');
-      
     } catch (error) {
-      console.error('❌ Delete product error:', error);
-      console.error('❌ Error details:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
-      });
       Alert.alert(
         'Deletion Failed', 
         `Failed to delete product: ${error.message || 'Unknown error'}\n\nPlease try again or contact support if the problem persists.`,
@@ -468,55 +331,34 @@ export default function Home({ navigation }) {
   // Sequential loading function to prevent timeout issues
   const loadAllSellerData = async () => {
     if (!user?.id) {
-      console.warn('⚠️ No user ID found, skipping data load');
       return;
     }
-
-    console.log('🚀 Starting sequential seller data load...');
     
     try {
       // Load data sequentially with delays to prevent overwhelming the server
-      console.log('📊 Step 1: Loading seller profile...');
       await fetchSellerProfile();
-      
-      // Small delay between requests
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      console.log('📊 Step 2: Loading seller stats...');
       await fetchSellerStats();
-      
-      // Small delay between requests
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      console.log('📊 Step 3: Loading seller products...');
       await fetchSellerProducts();
-      
-      // Small delay before notifications
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      console.log('📊 Step 4: Loading notifications (non-blocking)...');
       // Load notifications in background without blocking
-      loadNotificationCount().catch(error => {
-        console.warn('⚠️ Notification loading failed (non-critical):', error);
-      });
-      
-      console.log('✅ All seller data loaded successfully');
+      loadNotificationCount().catch(() => {});
     } catch (error) {
-      console.error('❌ Error during sequential data loading:', error);
+      // Silent error handling
     }
   };
 
   // Pull-to-refresh function
   const onRefresh = async () => {
-    console.log('🔄 Pull-to-refresh triggered');
     setRefreshing(true);
-    
     try {
-      // Reload all data
       await loadAllSellerData();
-      console.log('✅ Pull-to-refresh completed successfully');
     } catch (error) {
-      console.error('❌ Error during pull-to-refresh:', error);
+      // Silent error handling
     } finally {
       setRefreshing(false);
     }
@@ -537,45 +379,26 @@ export default function Home({ navigation }) {
   // Listen for product creation and update events
   useEffect(() => {
     const handleProductCreated = () => {
-      console.log('📦 Product created event received, refreshing products...');
       fetchSellerProducts();
     };
 
     const handleProductUpdated = (eventData) => {
-      console.log('🔄 Product updated event received:', eventData?.productId);
-      console.log('🖼️ Updated product images:', eventData?.updatedProduct?.images?.length || 0);
-      console.log('🖼️ Updated product images data:', eventData?.updatedProduct?.images);
-      
       // Immediately update the local state with the updated product
       if (eventData?.updatedProduct && eventData?.productId) {
-        console.log('🔄 Updating local state for product:', eventData.productId);
-        setSellerProducts(prevProducts => {
-          const updated = prevProducts.map(product => {
-            if (product.id === eventData.productId) {
-              const updatedProduct = { ...product, ...eventData.updatedProduct };
-              console.log('🔄 Updated product in state:', {
-                id: updatedProduct.id,
-                name: updatedProduct.name,
-                imagesCount: updatedProduct.images?.length || 0,
-                updatedAt: updatedProduct.updatedAt
-              });
-              return updatedProduct;
-            }
-            return product;
-          });
-          console.log('🔄 New products array length:', updated.length);
-          return updated;
-        });
+        setSellerProducts(prevProducts => 
+          prevProducts.map(product => 
+            product.id === eventData.productId 
+              ? { ...product, ...eventData.updatedProduct }
+              : product
+          )
+        );
       }
       
       // Also refresh from server to ensure consistency
-      console.log('🔄 Fetching fresh data from server...');
       fetchSellerProducts();
     };
 
     const handleProfileUpdated = () => {
-      console.log('👤 Profile updated event received, refreshing profile...');
-      console.log('👤 Current profile before refresh:', currentProfile?.fullName, currentProfile?.shopName);
       // Clear current profile to force refresh
       setSellerProfile(null);
       fetchSellerProfile();
@@ -595,11 +418,10 @@ export default function Home({ navigation }) {
   // Refresh data when screen comes into focus (e.g., returning from upload or edit screens)
   useFocusEffect(
     React.useCallback(() => {
-      console.log('🔄 Home screen focused, fetching data...');
       fetchSellerProfile();
       fetchSellerProducts();
       fetchSellerStats();
-      loadNotificationCount(); // Load notification count when screen focuses
+      loadNotificationCount();
     }, [user?.id])
   );
   // Render modern header
@@ -705,7 +527,6 @@ export default function Home({ navigation }) {
 
   // Render shop profile card
   const renderShopProfile = () => {
-    
     return (
     <View style={styles.shopCard}>
       <View style={styles.shopHeader}>
@@ -719,11 +540,6 @@ export default function Home({ navigation }) {
               }}
               style={styles.shopBannerImage}
               resizeMode="cover"
-              onError={(error) => {
-                console.log('❌ Shop banner load error:', error.nativeEvent.error);
-                console.log('❌ Failed URI:', currentProfile.seller_profile.shopBanner);
-              }}
-              onLoad={() => console.log('✅ Shop banner loaded successfully')}
             />
           ) : (
             <View style={[styles.shopBannerImage, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0F0F0' }]}>
@@ -740,11 +556,6 @@ export default function Home({ navigation }) {
                 }}
                 style={styles.shopLogo}
                 resizeMode="cover"
-                onError={(error) => {
-                  console.log('❌ Shop logo load error:', error.nativeEvent.error);
-                  console.log('❌ Failed URI:', currentProfile.seller_profile.shopLogo);
-                }}
-                onLoad={() => console.log('✅ Shop logo loaded successfully')}
               />
             ) : (
               <View style={[styles.shopLogo, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#EEE' }]}>
@@ -771,124 +582,233 @@ export default function Home({ navigation }) {
 
   // Render modern product item
   const renderProductItem = ({ item }) => {
-    // Debug logging for product structure
-    console.log(`🖼️ Rendering product: ${item.name}`);
-    console.log(`🖼️ Product images array:`, item.images);
-    console.log(`🖼️ Images count: ${item.images?.length || 0}`);
-    console.log(`🖼️ First image (should be main):`, item.images?.[0]);
-    console.log(`🖼️ Second image:`, item.images?.[1]);
-    console.log(`🖼️ Third image:`, item.images?.[2]);
-    console.log(`🖼️ UpdatedAt: ${item.updatedAt}`);
+    // Get or create menu animation value for this product
+    if (!menuAnimations.current[item.id]) {
+      menuAnimations.current[item.id] = new Animated.Value(0);
+    }
+    const menuAnimation = menuAnimations.current[item.id];
+    const menuExpanded = expandedMenus[item.id] || false;
     
     // Get main product image using utility function (now always uses first image)
     const imageUri = getMainImageUri(item.images);
-    console.log(`🖼️ Main image URI from utility (first image):`, imageUri);
-    console.log(`🖼️ Raw images array:`, item.images);
-    console.log(`🖼️ Images array type:`, typeof item.images);
-    console.log(`🖼️ Images array length:`, item.images?.length);
-    if (item.images && item.images.length > 0) {
-      console.log(`🖼️ First image item:`, item.images[0]);
-      console.log(`🖼️ First image type:`, typeof item.images[0]);
-      console.log(`🖼️ Image object keys:`, Object.keys(item.images[0]));
-      console.log(`🖼️ Image object values:`, Object.values(item.images[0]));
-    }
     
     // Add cache-busting parameter to force image refresh when product is updated
     const cacheBustingUri = imageUri ? `${imageUri}${imageUri.includes('?') ? '&' : '?'}t=${item.updatedAt || Date.now()}` : null;
     
-    // Debug logging
-    console.log('🖼️ Final cache-busting URI:', cacheBustingUri, 'for product:', item.name);
-    if (item.images && item.images.length > 0) {
-      console.log('🖼️ Image object structure:', item.images[0]);
-    }
+    // Toggle menu with animation
+    const toggleMenu = () => {
+      const toValue = menuExpanded ? 0 : 1;
+      setExpandedMenus(prev => ({
+        ...prev,
+        [item.id]: !menuExpanded
+      }));
+      
+      Animated.spring(menuAnimation, {
+        toValue,
+        friction: 6,
+        tension: 40,
+        useNativeDriver: true,
+      }).start();
+    };
+    
+    // Animated styles for action buttons
+    const button1Style = {
+      transform: [
+        {
+          translateX: menuAnimation.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, -140],
+          }),
+        },
+        {
+          scale: menuAnimation.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, 1],
+          }),
+        },
+      ],
+      opacity: menuAnimation,
+    };
+    
+    const button2Style = {
+      transform: [
+        {
+          translateX: menuAnimation.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, -95],
+          }),
+        },
+        {
+          scale: menuAnimation.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, 1],
+          }),
+        },
+      ],
+      opacity: menuAnimation,
+    };
+    
+    const button3Style = {
+      transform: [
+        {
+          translateX: menuAnimation.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, -50],
+          }),
+        },
+        {
+          scale: menuAnimation.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, 1],
+          }),
+        },
+      ],
+      opacity: menuAnimation,
+    };
+    
+    const menuButtonRotation = {
+      transform: [
+        {
+          rotate: menuAnimation.interpolate({
+            inputRange: [0, 1],
+            outputRange: ['0deg', '90deg'],
+          }),
+        },
+      ],
+    };
+    
+    // Overlay opacity animation
+    const overlayStyle = {
+      opacity: menuAnimation.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0, 0.7],
+      }),
+    };
 
     return (
       <View style={styles.modernProductCard} key={`product-${item.id}-${item.updatedAt || 'initial'}`}>
-        <View style={styles.productImageContainer}>
-          {cacheBustingUri ? (
-            <Image
-              source={{ uri: cacheBustingUri }}
-              style={styles.productImage}
-              resizeMode="cover"
-              onError={(error) => {
-                console.log('Image load error for', item.name, ':', error.nativeEvent.error);
-                console.log('Failed URI:', cacheBustingUri);
-              }}
-              onLoad={() => console.log('Image loaded successfully for:', item.name)}
-            />
-          ) : (
-            <View style={[styles.productImage, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F3F3' }]}>
-              <Icon name="cube" size={28} color="#B0B0B0" />
+        {/* Dim overlay when menu is expanded */}
+        {menuExpanded && (
+          <Animated.View style={[styles.menuOverlay, overlayStyle]} pointerEvents="none" />
+        )}
+        {/* Three-dot menu button - Top Right */}
+        <View style={styles.menuButtonContainer}>
+              {/* Animated Action Buttons (appear when menu is expanded) */}
+              <Animated.View style={[styles.actionButton, button1Style, { position: 'absolute', right: 0 }]}>
+                <TouchableOpacity 
+                  style={[styles.actionButton, { backgroundColor: '#E3F2FD', borderColor: '#90CAF9' }]}
+                  onPress={() => {
+                    // Close menu and navigate immediately
+                    setExpandedMenus(prev => ({ ...prev, [item.id]: false }));
+                    menuAnimation.setValue(0);
+                    handleProductAction('edit', item);
+                  }}
+                  disabled={!menuExpanded}
+                >
+                  <Icon name="create-outline" size={18} color="#2196F3" />
+                </TouchableOpacity>
+              </Animated.View>
+              
+              <Animated.View style={[styles.actionButton, button2Style, { position: 'absolute', right: 0 }]}>
+                <TouchableOpacity 
+                  style={[styles.actionButton, { backgroundColor: '#FFF3E0', borderColor: '#FFCC80' }]}
+                  onPress={() => {
+                    handleProductAction('duplicate', item);
+                    // Close menu instantly
+                    setExpandedMenus(prev => ({
+                      ...prev,
+                      [item.id]: false
+                    }));
+                    menuAnimation.setValue(0);
+                  }}
+                  disabled={!menuExpanded}
+                >
+                  <Icon name="copy-outline" size={18} color="#FF9800" />
+                </TouchableOpacity>
+              </Animated.View>
+              
+              <Animated.View style={[styles.actionButton, button3Style, { position: 'absolute', right: 0 }]}>
+                <TouchableOpacity 
+                  style={[styles.actionButton, styles.deleteButton]}
+                  onPress={() => {
+                    // Close menu and show delete confirmation
+                    setExpandedMenus(prev => ({ ...prev, [item.id]: false }));
+                    menuAnimation.setValue(0);
+                    handleProductAction('delete', item);
+                  }}
+                  activeOpacity={0.7}
+                  disabled={!menuExpanded}
+                >
+                  <Icon name="trash-outline" size={18} color="#F44336" />
+                </TouchableOpacity>
+              </Animated.View>
+              
+          {/* Three-dot menu button */}
+          <Animated.View style={menuButtonRotation}>
+            <TouchableOpacity 
+              style={[styles.actionButton, styles.menuButton]}
+              onPress={toggleMenu}
+              activeOpacity={0.7}
+            >
+              <Icon name="ellipsis-horizontal" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+        
+        {/* Top Row: Image + Product Name */}
+        <View style={styles.productTopRow}>
+          <View style={styles.productImageContainer}>
+            {cacheBustingUri ? (
+              <Image
+                source={{ uri: cacheBustingUri }}
+                style={styles.productImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={[styles.productImage, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F3F3' }]}>
+                <Icon name="cube" size={28} color="#B0B0B0" />
+              </View>
+            )}
+            <View style={styles.productBadge}>
+              <Text style={styles.productBadgeText}>#{String(item.id || '').slice(-6) || 'N/A'}</Text>
             </View>
-          )}
-          <View style={styles.productBadge}>
-            <Text style={styles.productBadgeText}>#{String(item.id || '').slice(-6) || 'N/A'}</Text>
+          </View>
+          
+          <View style={styles.productNameAndActions}>
+            <Text style={styles.modernProductPrice}>₱{Number(item.price || 0).toLocaleString()}</Text>
+            
+            <View style={styles.productNameContainer}>
+              <Text style={styles.modernProductName} numberOfLines={2} ellipsizeMode="tail">{item.name || 'Unnamed Product'}</Text>
+            </View>
           </View>
         </View>
-      
-      <View style={styles.modernProductInfo}>
-        <Text style={styles.modernProductName} numberOfLines={2}>{item.name || 'Unnamed Product'}</Text>
-        <Text style={styles.modernProductPrice}>₱{Number(item.price || 0).toLocaleString()}</Text>
         
-        <View style={styles.productMetrics}>
-          <View style={styles.metricItem}>
-            <Icon name="bag" size={14} color="#4CAF50" />
-            <Text style={styles.metricText}>{item.sold || 0} sold</Text>
-          </View>
-          <View style={styles.metricItem}>
-            <Icon name="cube" size={14} color="#2196F3" />
-            <Text style={styles.metricText}>{item.stock || 0} stock</Text>
-          </View>
-          <View style={styles.metricItem}>
-            <Icon name="eye" size={14} color="#FF9800" />
-            <Text style={styles.metricText}>{item.isActive ? 'active' : 'inactive'}</Text>
-          </View>
-          {/* AR Checkmark */}
-          {item.hasAR && (
-            <View style={styles.metricItem}>
-              <Icon name="checkmark-circle" size={14} color="#10B981" />
-              <Text style={[styles.metricText, { color: '#10B981' }]}>AR Ready</Text>
+        {/* Bottom Row: Metrics */}
+        <View style={styles.productBottomRow}>
+          <View style={styles.modernProductInfo}>
+            <View style={styles.productMetrics}>
+              <View style={styles.metricItem}>
+                <Icon name="bag" size={14} color="#4CAF50" />
+                <Text style={styles.metricText}>{item.sold || 0} sold</Text>
+              </View>
+              <View style={styles.metricItem}>
+                <Icon name="cube" size={14} color="#2196F3" />
+                <Text style={styles.metricText}>{item.stock || 0} stock</Text>
+              </View>
+              <View style={styles.metricItem}>
+                <Icon name="eye" size={14} color="#FF9800" />
+                <Text style={styles.metricText}>{item.isActive ? 'active' : 'inactive'}</Text>
+              </View>
+              {/* AR Checkmark */}
+              {item.hasAR && (
+                <View style={styles.metricItem}>
+                  <Icon name="checkmark-circle" size={14} color="#10B981" />
+                  <Text style={[styles.metricText, { color: '#10B981' }]}>AR Ready</Text>
+                </View>
+              )}
             </View>
-          )}
+          </View>
         </View>
-      </View>
-      
-      <View style={styles.actionButtonsContainer}>
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={() => {
-            console.log('🔘 Edit button pressed for product:', {
-              id: item.id,
-              name: item.name,
-              price: item.price
-            });
-            handleProductAction('edit', item);
-          }}
-        >
-          <Icon name="create-outline" size={18} color="#2196F3" />
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={() => handleProductAction('duplicate', item)}
-        >
-          <Icon name="copy-outline" size={18} color="#FF9800" />
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.actionButton, styles.deleteButton]}
-          onPress={() => {
-            console.log('🗑️ Delete button pressed for product:', {
-              id: item.id,
-              name: item.name
-            });
-            handleProductAction('delete', item);
-          }}
-          activeOpacity={0.7}
-        >
-          <Icon name="trash-outline" size={18} color="#F44336" />
-        </TouchableOpacity>
-      </View>
     </View>
     );
   };
@@ -1020,29 +940,35 @@ export default function Home({ navigation }) {
               <View style={styles.sectionHeaderRow}>
                 <Text style={styles.contentSectionTitle}>Your Products</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <TouchableOpacity 
-                    onPress={async () => {
-                      console.log('🧪 Testing network connections...');
-                      const workingUrl = await testConnection();
-                      if (workingUrl) {
-                        Alert.alert('Connection Test', `Found working connection: ${workingUrl}`);
-                      } else {
-                        Alert.alert('Connection Test', 'No working connections found. Check if backend is running.');
-                      }
-                    }}
-                    style={{ marginRight: 15, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#FF8B47', borderRadius: 4 }}
-                  >
-                    <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: 'bold' }}>TEST</Text>
-                  </TouchableOpacity>
+                  <View style={{ 
+                    flexDirection: 'row', 
+                    alignItems: 'center', 
+                    backgroundColor: '#FFF5F0', 
+                    paddingHorizontal: 12, 
+                    paddingVertical: 6, 
+                    borderRadius: 12,
+                    marginRight: 12,
+                    borderWidth: 1,
+                    borderColor: '#FFE6D7'
+                  }}>
+                    <Icon name="cube" size={16} color="#FF8B47" />
+                    <Text style={{ 
+                      color: '#FF8B47', 
+                      fontSize: 14, 
+                      fontWeight: '700',
+                      marginLeft: 6 
+                    }}>
+                      {sellerProducts.length}
+                    </Text>
+                  </View>
                   <TouchableOpacity 
                     onPress={() => {
-                      console.log('🔄 Manual refresh triggered');
                       setSellerProducts([]);
                       fetchSellerProducts();
                     }}
-                    style={{ marginRight: 15 }}
+                    style={{ marginRight: 12 }}
                   >
-                    <Icon name="refresh" size={20} color="#4A90E2" />
+                    <Icon name="refresh" size={22} color="#4A90E2" />
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => navigation.navigate('Upload')}>
                     <Text style={styles.viewAllLink}>Add Product</Text>
@@ -1107,12 +1033,6 @@ export default function Home({ navigation }) {
       </ScrollView>
 
       {/* Custom Delete Confirmation Popup */}
-      {console.log('🔍 Delete modal state:', {
-        visible: showDeleteConfirmation,
-        hasProduct: !!productToDelete,
-        productId: productToDelete?.id,
-        loading: deletionLoading
-      })}
       <DeleteConfirmation
         visible={showDeleteConfirmation}
         product={productToDelete}

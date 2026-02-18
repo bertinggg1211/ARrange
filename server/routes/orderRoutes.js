@@ -168,6 +168,7 @@ router.get('/seller', authenticateToken, async (req, res) => {
       paymentStatus: order.payment_status.charAt(0).toUpperCase() + order.payment_status.slice(1),
       trackingNumber: order.tracking_number,
       customer: {
+        id: order.buyer.id, // CRITICAL: Buyer ID needed for chat notifications
         name: order.buyer.full_name,
         phone: order.buyer.phone || '+63 XXX XXX XXXX',
         email: order.buyer.email,

@@ -16,6 +16,7 @@ import {
   Alert
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useFocusEffect } from "@react-navigation/native";
 import Icon from "react-native-vector-icons/Ionicons";
 import { useChat } from "../../context/ChatContext";
 import { BASE_URL } from "../../api/api";
@@ -30,11 +31,14 @@ export default function ChatList({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   
   
-  // Load conversations on mount
-  useEffect(() => {
-    console.log('💬 Buyer ChatList: Loading conversations...');
-    loadConversations();
-  }, []);
+  // Refresh conversations when screen comes into focus
+  // Only use useFocusEffect to avoid double loading
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('💬 Buyer ChatList: Screen focused, loading conversations...');
+      loadConversations();
+    }, [loadConversations])
+  );
 
   
   // Handle refresh
@@ -62,46 +66,56 @@ export default function ChatList({ navigation }) {
     return date.toLocaleDateString();
   };
 
-  // Format conversations for buyer view
-  const formattedChats = conversations.map(conv => ({
-    id: `chat_${conv.partnerId}`,
-    partnerId: conv.partnerId,
-    sellerName: conv.partnerName || 'Unknown Seller',
-    avatar: conv.partnerAvatar ? 
-      (conv.partnerAvatar.startsWith('http') ? 
-        { uri: conv.partnerAvatar } : 
-        { uri: `${BASE_URL}${conv.partnerAvatar}` }
-      ) : null,
-    lastMessage: conv.lastMessage || 'No messages yet',
-    timestamp: formatTime(conv.lastMessageTime),
-    unreadCount: conv.unreadCount || 0,
-    isOnline: conv.isOnline || false,
-    isActive: true,
-    shop: {
-      id: conv.partnerId,
-      name: conv.partnerName,
-      avatar: conv.partnerAvatar ? 
-        (conv.partnerAvatar.startsWith('http') ? 
-          { uri: conv.partnerAvatar } : 
-          { uri: `${BASE_URL}${conv.partnerAvatar}` }
-        ) : null,
-      isOnline: conv.isOnline || false
-    }
-  }));
+  // Format conversations for buyer view - useMemo to prevent recreating on every render
+  const formattedChats = React.useMemo(() => {
+    return conversations.map(conv => {
+      // Handle avatar URL properly
+      let avatarSource = null;
+      if (conv.partnerAvatar) {
+        const avatarUrl = conv.partnerAvatar.startsWith('http') 
+          ? conv.partnerAvatar 
+          : conv.partnerAvatar.startsWith('/') 
+            ? `${BASE_URL}${conv.partnerAvatar}`
+            : `${BASE_URL}/${conv.partnerAvatar}`;
+        avatarSource = { uri: avatarUrl };
+      }
+      
+      return {
+        id: `chat_${conv.partnerId}`,
+        partnerId: conv.partnerId,
+        sellerName: conv.partnerName || 'Unknown Seller',
+        avatar: avatarSource,
+        lastMessage: conv.lastMessage || 'No messages yet',
+        timestamp: formatTime(conv.lastMessageTime),
+        unreadCount: conv.unreadCount || 0,
+        isOnline: conv.isOnline || false,
+        isActive: true,
+        shop: {
+          id: conv.partnerId,
+          name: conv.partnerName,
+          avatar: avatarSource,
+          isOnline: conv.isOnline || false
+        }
+      };
+    });
+  }, [conversations]);
   
-  // Filter chats based on search query
-  const filteredChats = formattedChats.filter(chat => 
-    chat.sellerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    chat.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter chats based on search query - useMemo to prevent recalculating
+  const filteredChats = React.useMemo(() => {
+    if (!searchQuery.trim()) return formattedChats;
+    
+    return formattedChats.filter(chat => 
+      chat.sellerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      chat.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [formattedChats, searchQuery]);
   
-  // Handle chat navigation and mark as read
+  // Handle chat navigation
   const handleChatPress = (item) => {
     try {
-      // Mark as read first
-      markChatAsRead(item.id);
+      console.log('💬 Opening chat with:', item.sellerName, 'unread count:', item.unreadCount);
       
-      // Navigate to chat using parent navigator
+      // Navigate to chat (marking as read happens in Chat.jsx when it loads)
       if (navigation.getParent) {
         const parentNav = navigation.getParent();
         if (parentNav) {

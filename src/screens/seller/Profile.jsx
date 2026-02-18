@@ -16,10 +16,9 @@ import Icon from "react-native-vector-icons/Ionicons";
 import { useAuth } from "../../context/AuthContext";
 import { getSellerProfile, getSellerStats } from "../../api/sellerApi";
 import { deleteUserAccount } from "../../api/userApi";
-import { clearUserOrders } from "../../api/adminApi";
 import DeleteAccountModal from "../../components/DeleteAccountModal";
 import AccountDeletedModal from "../../components/AccountDeletedModal";
-import ServerConnection from "../../components/ServerConnection";
+import CustomAlert from "../../components/CustomAlert";
 import styles from "./styles/Profile.style";
 import { useIsFocused } from "@react-navigation/native";
 import { BASE_URL } from "../../api/api";
@@ -39,7 +38,7 @@ export default function Profile({ navigation }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showDeletedModal, setShowDeletedModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [showServerConnection, setShowServerConnection] = useState(false);
+  const [showLogoutAlert, setShowLogoutAlert] = useState(false);
 
   // Helper function to calculate time since account creation
   const getTimeSinceCreation = (createdAt) => {
@@ -176,41 +175,6 @@ export default function Profile({ navigation }) {
     }
   };
 
-  // Clear user orders function
-  const handleClearOrders = () => {
-    Alert.alert(
-      'Clear Orders',
-      'Are you sure you want to clear all your orders? This action cannot be undone.',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Clear',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              console.log('🗑️ Clearing seller orders...');
-              const result = await clearUserOrders(user?.id);
-              
-              if (result.success) {
-                Alert.alert('Success', 'All orders cleared successfully!');
-                // Refresh stats after clearing orders
-                await fetchSellerStatsFromBackend();
-              } else {
-                Alert.alert('Error', result.error || 'Failed to clear orders');
-              }
-            } catch (error) {
-              console.error('❌ Error clearing orders:', error);
-              Alert.alert('Error', 'Failed to clear orders');
-            }
-          },
-        },
-      ]
-    );
-  };
-
   const fetchSellerStatsFromBackend = async () => {
     try {
       console.log('🚨 FETCHSELLERSTATS CALLED IN PROFILE.JSX!');
@@ -325,30 +289,22 @@ export default function Profile({ navigation }) {
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      "Logout",
-      "Are you sure you want to logout?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "Logout", 
-          style: "destructive", 
-          onPress: async () => {
-            try {
-              // Clear auth; App.tsx will render AuthNavigator automatically
-              await logout();
-            } catch (error) {
-              console.error('Seller logout error:', error);
-              Alert.alert(
-                'Logout Error', 
-                'Failed to logout completely. Please try again.',
-                [{ text: 'OK' }]
-              );
-            }
-          }
-        }
-      ]
-    );
+    setShowLogoutAlert(true);
+  };
+
+  const confirmLogout = async () => {
+    setShowLogoutAlert(false);
+    try {
+      // Clear auth; App.tsx will render AuthNavigator automatically
+      await logout();
+    } catch (error) {
+      console.error('Seller logout error:', error);
+      Alert.alert(
+        'Logout Error', 
+        'Failed to logout completely. Please try again.',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   const handleDeleteAccount = () => {
@@ -361,10 +317,19 @@ export default function Profile({ navigation }) {
     }
   };
 
-  const handleDeletedModalClose = () => {
+  const handleDeletedModalClose = async () => {
+    console.log('🗑️ Account deleted modal closed, completing cleanup...');
+    
+    // Clear local storage - this will clear the auth token and all local data
+    console.log('🗑️ Clearing local storage...');
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    await AsyncStorage.clear();
+    
+    // Logout (clears auth state, and contexts will auto-clear due to useEffect watching user)
+    await logout();
+    
+    // Close modal
     setShowDeletedModal(false);
-    // Logout and redirect to login after showing success
-    logout();
   };
 
   const performDeleteAccount = async () => {
@@ -375,10 +340,21 @@ export default function Profile({ navigation }) {
       const result = await deleteUserAccount();
       console.log('✅ Account deletion result:', result);
       
-      // Success - close delete modal and show success modal
-      setShowDeleteModal(false);
-      setIsDeleting(false);
-      setShowDeletedModal(true);
+      if (result.success) {
+        console.log('✅ Account deleted successfully from server');
+        
+        // Close delete confirmation modal
+        setShowDeleteModal(false);
+        setIsDeleting(false);
+        
+        // Show custom success modal FIRST (before logout)
+        setShowDeletedModal(true);
+      } else {
+        console.error('❌ Failed to delete account:', result.message);
+        setIsDeleting(false);
+        setShowDeleteModal(false);
+        Alert.alert('Error', result.message || 'Failed to delete account');
+      }
       
     } catch (error) {
       console.error('❌ Error deleting account:', error);
@@ -591,52 +567,6 @@ export default function Profile({ navigation }) {
           </View>
         </View>
 
-        {/* Developer Tools Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Developer Tools</Text>
-          <View style={styles.menuContainer}>
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                console.log('🎯 Navigating to ARViewer from seller profile...');
-                try {
-                  // Navigate to parent navigator first, then to ARViewer
-                  const parent = navigation.getParent();
-                  if (parent) {
-                    console.log('📊 Parent navigator found, navigating to ARViewer...');
-                    parent.navigate("ARViewer", {
-                      productId: 'test-product',
-                      productName: 'Test 3D Model',
-                      modelUrl: 'https://res.cloudinary.com/dv53n5nav/raw/upload/v1760825452/ar_models/kiri_model_1760825443969.glb',
-                      scanData: {
-                        glbUrl: 'https://res.cloudinary.com/dv53n5nav/raw/upload/v1760825452/ar_models/kiri_model_1760825443969.glb',
-                        cloudinaryUrl: 'https://res.cloudinary.com/dv53n5nav/raw/upload/v1760825452/ar_models/kiri_model_1760825443969.glb',
-                        success: true,
-                        scanId: 'test-scan-id',
-                        status: 'completed'
-                      },
-                      fromKiriScanner: true
-                    });
-                    console.log('✅ Navigation to ARViewer successful');
-                  } else {
-                    console.log('❌ No parent navigator found');
-                    Alert.alert('Navigation Error', 'Cannot access AR Viewer from this screen');
-                  }
-                } catch (error) {
-                  console.error('❌ Navigation error:', error);
-                  Alert.alert('Navigation Error', `Failed to navigate to AR Viewer: ${error.message}`);
-                }
-              }}
-            >
-              <View style={styles.menuIconContainer}>
-                <Icon name="cube-outline" size={22} color="#FF8B47" />
-              </View>
-              <Text style={styles.menuText}>Test AR Viewer</Text>
-              <Icon name="chevron-forward-outline" size={20} color="#999" />
-            </TouchableOpacity>
-          </View>
-        </View>
-
         {/* Analytics Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Analytics</Text>
@@ -682,45 +612,12 @@ export default function Profile({ navigation }) {
           <View style={styles.menuContainer}>
             <TouchableOpacity
               style={styles.menuItem}
-              onPress={handleClearOrders}
-            >
-              <View style={styles.menuIconContainer}>
-                <Icon name="trash-outline" size={22} color="#FF3B30" />
-              </View>
-              <Text style={[styles.menuText, { color: '#FF3B30' }]}>Clear Orders</Text>
-              <Icon name="chevron-forward-outline" size={20} color="#999" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => navigation.navigate("StoreSettings")}
-            >
-              <View style={styles.menuIconContainer}>
-                <Icon name="storefront-outline" size={22} color="#FF8B47" />
-              </View>
-              <Text style={styles.menuText}>Store Settings</Text>
-              <Icon name="chevron-forward-outline" size={20} color="#999" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.menuItem}
               onPress={() => navigation.navigate("Notifications")}
             >
               <View style={styles.menuIconContainer}>
                 <Icon name="notifications-outline" size={22} color="#FF8B47" />
               </View>
               <Text style={styles.menuText}>Notifications</Text>
-              <Icon name="chevron-forward-outline" size={20} color="#999" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => setShowServerConnection(true)}
-            >
-              <View style={styles.menuIconContainer}>
-                <Icon name="server-outline" size={22} color="#FF8B47" />
-              </View>
-              <Text style={styles.menuText}>Server Connection</Text>
               <Icon name="chevron-forward-outline" size={20} color="#999" />
             </TouchableOpacity>
 
@@ -743,21 +640,22 @@ export default function Profile({ navigation }) {
         </View>
       </ScrollView>
 
+      {/* Logout Alert */}
+      <CustomAlert
+        visible={showLogoutAlert}
+        title="Logout"
+        message="Are you sure you want to logout?"
+        type="warning"
+        onClose={() => setShowLogoutAlert(false)}
+        onConfirm={confirmLogout}
+      />
+
       {/* Delete Account Modal */}
       <DeleteAccountModal
         visible={showDeleteModal}
         onClose={handleCloseDeleteModal}
         onConfirm={performDeleteAccount}
         loading={isDeleting}
-      />
-
-      <ServerConnection
-        visible={showServerConnection}
-        onClose={() => setShowServerConnection(false)}
-        onServerChanged={(serverUrl) => {
-          console.log('🌐 Seller server changed to:', serverUrl);
-          // Optionally refresh seller data or show success message
-        }}
       />
 
       <AccountDeletedModal

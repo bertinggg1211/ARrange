@@ -41,7 +41,7 @@ export default StyleSheet.create({
     padding: 16,
   },
   messageContainer: {
-    marginBottom: 16,
+    marginBottom: 4,
     maxWidth: '80%',
   },
   buyerMessageContainer: {
@@ -180,12 +180,12 @@ export default StyleSheet.create({
   },
   sellerContainer: {
     alignSelf: 'flex-end',
-    marginBottom: 12,
+    marginBottom: 4,
   },
   buyerContainer: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
-    marginBottom: 12,
+    marginBottom: 4,
   },
   messageAvatar: {
     width: 32,
@@ -194,7 +194,7 @@ export default StyleSheet.create({
     marginRight: 8,
   },
   messageContent: {
-    flex: 1,
+    maxWidth: '100%',
   },
   sellerMsg: {
     backgroundColor: '#FF8B47',
@@ -209,6 +209,10 @@ export default StyleSheet.create({
     borderBottomLeftRadius: 4,
     paddingHorizontal: 16,
     paddingVertical: 10,
+  },
+  msgText: {
+    fontSize: 16,
+    lineHeight: 20,
   },
   sellerText: {
     color: '#fff',
@@ -228,16 +232,17 @@ export default StyleSheet.create({
     backgroundColor: '#fff',
   },
   productAttachment: {
-    marginTop: 8,
+    marginBottom: 8,
     backgroundColor: '#f8f8f8',
     borderRadius: 8,
     padding: 8,
     flexDirection: 'row',
     alignItems: 'center',
+    maxWidth: 250,
   },
   productInfo: {
     flex: 1,
-    marginRight: 8,
+    marginLeft: 8,
   },
   productName: {
     fontSize: 14,
@@ -250,8 +255,85 @@ export default StyleSheet.create({
     color: '#666',
   },
   productImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 4,
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+  },
+  reviewRequestButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginTop: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  reviewRequestButtonText: {
+    color: '#FF8B47',
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  // Order notification threading styles
+  threadContainer: {
+    width: '100%',
+    marginTop: 8,
+    marginBottom: 16,
+    paddingLeft: 20,
+    paddingRight: 10,
+  },
+  threadHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    paddingLeft: 8,
+  },
+  threadHeaderText: {
+    fontSize: 12,
+    color: '#FF8B47',
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  threadChildContainer: {
+    width: '100%',
+    paddingLeft: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: '#FF8B47',
+    backgroundColor: 'rgba(255, 139, 71, 0.05)',
+  },
+  threadChildContent: {
+    alignItems: 'flex-end',
+    width: '100%',
+    paddingVertical: 4,
+  },
+  threadChildBubble: {
+    backgroundColor: '#FF8B47',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    maxWidth: '90%',
+    minWidth: 120,
+    shadowColor: '#FF8B47',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  threadChildText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  threadChildTimestamp: {
+    fontSize: 11,
+    color: '#999',
+    marginTop: 4,
+    marginRight: 8,
   },
 });

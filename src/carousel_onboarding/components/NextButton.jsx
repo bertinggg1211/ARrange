@@ -46,15 +46,16 @@ export default function NextButton({ percentage, scrollTo }) {
     <View style={styles.container}>
       <Svg width={size} height={size}>
         <Circle
-          stroke="#fff"
+          stroke="#FFB380"
           cx={center}
           cy={center}
           r={radius}
           strokeWidth={strokeWidth}
+          opacity={0.3}
         />
         <Circle
           ref={progressRef}
-          stroke="#fff"
+          stroke="#FF8B47"
           cx={center}
           cy={center}
           r={radius}
@@ -64,7 +65,7 @@ export default function NextButton({ percentage, scrollTo }) {
         />
       </Svg>
 
-      <TouchableOpacity onPress={scrollTo} style={styles.button} activeOpacity={0.6}>
+      <TouchableOpacity onPress={scrollTo} style={styles.button} activeOpacity={0.8}>
         <AntDesign name="arrowright" size={30} color="#fff" />
       </TouchableOpacity>
     </View>

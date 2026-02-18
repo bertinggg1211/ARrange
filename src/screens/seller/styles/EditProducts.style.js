@@ -155,10 +155,11 @@ export default StyleSheet.create({
     flex: 1,
   },
   switchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    justifyContent: 'flex-start',
+    paddingVertical: 0,
+    gap: 8,
   },
 
   // Price Input
@@ -697,6 +698,11 @@ export default StyleSheet.create({
     color: '#9CA3AF',
     fontWeight: '500',
   },
+  arButtonsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   arScanButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -707,6 +713,7 @@ export default StyleSheet.create({
     borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 16,
+    flex: 1,
   },
   arScanButtonActive: {
     backgroundColor: '#10B981',
@@ -720,5 +727,22 @@ export default StyleSheet.create({
   },
   arScanButtonTextActive: {
     color: '#FFFFFF',
+  },
+  arDeleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FEE2E2',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  arDeleteButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#EF4444',
+    marginLeft: 6,
   },
 });

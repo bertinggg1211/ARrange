@@ -1,41 +1,43 @@
 // Local model loader utility for GLB files
 import { Platform } from 'react-native';
 
-// Import the base64 encoded TEST3.glb file (smaller size - 1.95MB)
-import TEST3_GLB_DATA_URL from '../data/TEST3_GLB_BASE64.js';
-
-// Get the local TEST3.glb model as base64 data URL (smaller size - 1.95MB)
-export const getLocalModelPath = (modelType = 'TEST3') => {
-  switch (modelType) {
-    case 'TEST3':
-      return TEST3_GLB_DATA_URL;
-    default:
-      return TEST3_GLB_DATA_URL;
+// Get the local model path from Android assets or fallback to remote
+export const getLocalModelPath = (modelType = 'TEST1') => {
+  // For Android, use the proper file:// URL for assets
+  if (Platform.OS === 'android') {
+    switch (modelType) {
+      case 'TEST1':
+        return 'file:///android_asset/TEST1.glb';
+      default:
+        return 'file:///android_asset/TEST1.glb';
+    }
   }
+  // For iOS or other platforms, fall back to sample model
+  return getSampleModelPath();
 };
 
 // Get model info for display
-export const getLocalModelInfo = (modelType = 'TEST3') => {
+export const getLocalModelInfo = (modelType = 'TEST1') => {
   const models = {
-    'TEST3': {
-      name: 'TEST3 Model',
-      description: 'High-quality 3D model',
-      size: '1.95MB',
+    'TEST1': {
+      name: 'TEST1 Model',
+      description: 'Local 3D model from Android assets',
+      size: 'Unknown',
       format: 'GLB'
     }
   };
   
-  return models[modelType] || models['TEST3'];
+  return models[modelType] || models['TEST1'];
 };
 
 // Get all available local models
 export const getAvailableLocalModels = () => {
   return [
     {
-      id: 'TEST3',
-      name: 'TEST3 Model',
-      description: 'High-quality 3D model',
-      size: '1.95MB',
+      id: 'TEST1',
+      name: 'TEST1 Model',
+      description: 'Local 3D model from Android assets',
+      size: 'Unknown',
       format: 'GLB'
     }
   ];

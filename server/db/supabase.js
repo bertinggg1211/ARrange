@@ -21,15 +21,6 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
     headers: {
       'Connection': 'keep-alive',
       'Cache-Control': 'no-cache'
-      // Removed 'Prefer': 'return=minimal' as it was causing insert issues
-    },
-    fetch: (url, options = {}) => {
-      // Add timeout to prevent hanging requests
-      return fetch(url, {
-        ...options,
-        timeout: 30000, // 30 second timeout
-        keepalive: true, // Keep connections alive for better performance
-      });
     }
   },
   // Disable realtime for better performance (we don't need it for this app)
