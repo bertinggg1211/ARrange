@@ -36,12 +36,24 @@ router.post('/product', authenticateToken, async (req, res) => {
     }
 
     // Verify order exists and belongs to buyer
-    const { data: order, error: orderError } = await supabase
+    // Support both UUID and order_number for backward compatibility
+    let orderQuery = supabase
       .from('orders')
       .select('id, status, seller_id, buyer_id')
-      .eq('id', orderId)
-      .eq('buyer_id', buyerId)
-      .single();
+      .eq('buyer_id', buyerId);
+    
+    // Check if orderId is a UUID or order_number
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
+    
+    if (isUUID) {
+      console.log('🔍 Using UUID lookup for orderId:', orderId);
+      orderQuery = orderQuery.eq('id', orderId);
+    } else {
+      console.log('🔍 Using order_number lookup for orderId:', orderId);
+      orderQuery = orderQuery.eq('order_number', orderId);
+    }
+
+    const { data: order, error: orderError } = await orderQuery.single();
 
     if (orderError || !order) {
       console.error('❌ Order not found:', orderError);
@@ -59,11 +71,12 @@ router.post('/product', authenticateToken, async (req, res) => {
       });
     }
 
-    // Verify product is in this order
+    // Verify product is in this order (query order_items table)
+    // Use the actual order.id (UUID) for the lookup
     const { data: orderItem, error: itemError } = await supabase
       .from('order_items')
       .select('product_id')
-      .eq('order_id', orderId)
+      .eq('order_id', order.id)
       .eq('product_id', productId)
       .single();
 
@@ -81,7 +94,7 @@ router.post('/product', authenticateToken, async (req, res) => {
       .select('id')
       .eq('product_id', productId)
       .eq('buyer_id', buyerId)
-      .eq('order_id', orderId)
+      .eq('order_id', order.id)
       .single();
 
     if (existingReview) {
@@ -96,7 +109,7 @@ router.post('/product', authenticateToken, async (req, res) => {
       product_id: productId,
       buyer_id: buyerId,
       seller_id: order.seller_id,
-      order_id: orderId,
+      order_id: order.id, // Use the UUID from the order object
       rating: rating,
       comment: comment || null,
       review_title: reviewTitle || null,
@@ -350,13 +363,25 @@ router.post('/shop', authenticateToken, async (req, res) => {
     }
 
     // Verify order exists and belongs to buyer
-    const { data: order, error: orderError } = await supabase
+    // Support both UUID and order_number for backward compatibility
+    let orderQuery = supabase
       .from('orders')
       .select('id, status, seller_id, buyer_id')
-      .eq('id', orderId)
       .eq('buyer_id', buyerId)
-      .eq('seller_id', sellerId)
-      .single();
+      .eq('seller_id', sellerId);
+    
+    // Check if orderId is a UUID or order_number
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
+    
+    if (isUUID) {
+      console.log('🔍 Shop review - Using UUID lookup for orderId:', orderId);
+      orderQuery = orderQuery.eq('id', orderId);
+    } else {
+      console.log('🔍 Shop review - Using order_number lookup for orderId:', orderId);
+      orderQuery = orderQuery.eq('order_number', orderId);
+    }
+
+    const { data: order, error: orderError } = await orderQuery.single();
 
     if (orderError || !order) {
       console.error('❌ Order not found:', orderError);
@@ -380,7 +405,7 @@ router.post('/shop', authenticateToken, async (req, res) => {
       .select('id')
       .eq('seller_id', sellerId)
       .eq('buyer_id', buyerId)
-      .eq('order_id', orderId)
+      .eq('order_id', order.id)
       .single();
 
     if (existingReview) {
@@ -394,7 +419,7 @@ router.post('/shop', authenticateToken, async (req, res) => {
     const reviewData = {
       seller_id: sellerId,
       buyer_id: buyerId,
-      order_id: orderId,
+      order_id: order.id, // Use the UUID from the order object
       overall_rating: overallRating,
       communication_rating: communicationRating || null,
       shipping_speed_rating: shippingSpeedRating || null,

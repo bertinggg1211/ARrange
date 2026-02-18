@@ -158,6 +158,7 @@ router.get('/seller', authenticateToken, async (req, res) => {
     // Transform data for seller frontend
     const transformedOrders = orders.map(order => ({
       id: order.id,
+      seller_id: order.seller_id, // Add seller_id for shop reviews
       orderNumber: order.order_number,
       status: order.status.charAt(0).toUpperCase() + order.status.slice(1),
       date: new Date(order.created_at).toLocaleDateString(),
@@ -176,6 +177,7 @@ router.get('/seller', authenticateToken, async (req, res) => {
       },
       items: order.order_items.map(item => ({
         id: item.id,
+        product_id: item.product_id, // Add product_id for review requests
         name: item.products.name,
         price: `₱${parseFloat(item.unit_price).toLocaleString()}`,
         quantity: item.quantity,

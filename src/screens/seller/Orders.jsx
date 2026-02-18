@@ -321,7 +321,7 @@ export default function Orders({ navigation }) {
                 console.log('🖼️ Extracted image URL:', imageUrl);
                 
                 const productData = firstItem ? {
-                  id: firstItem.id,
+                  id: firstItem.product_id, // Use product_id, not order_items.id
                   name: firstItem.name,
                   image: imageUrl, // Use extracted URL string
                   price: firstItem.price,
@@ -393,7 +393,7 @@ export default function Orders({ navigation }) {
         }
         
         const productData = firstItem ? {
-          id: firstItem.id,
+          id: firstItem.product_id, // Use product_id, not order_items.id
           name: firstItem.name,
           image: imageUrl,
           price: firstItem.price,
@@ -475,7 +475,7 @@ export default function Orders({ navigation }) {
                 }
                 
                 const productData = firstItem ? {
-                  id: firstItem.id,
+                  id: firstItem.product_id, // Use product_id, not order_items.id
                   name: firstItem.name,
                   image: imageUrl,
                   price: firstItem.price,
@@ -508,14 +508,15 @@ export default function Orders({ navigation }) {
                     console.log('⭐ Sending product review request to buyer');
                     await sendReviewRequest(
                       order.customer.id,
-                      order.orderNumber,
+                      order.id, // Use order.id (UUID) instead of orderNumber
                       'product',
                       {
-                        id: firstItem.id,
+                        id: firstItem.product_id, // Use product_id, not order_items.id
                         name: firstItem.name,
                         image: imageUrl,
                         price: firstItem.price,
-                        quantity: firstItem.quantity
+                        quantity: firstItem.quantity,
+                        orderNumber: order.orderNumber // Include for display purposes
                       }
                     );
                     console.log('✅ Product review request sent successfully!');
@@ -533,12 +534,13 @@ export default function Orders({ navigation }) {
                     
                     await sendReviewRequest(
                       order.customer.id,
-                      order.orderNumber,
+                      order.id, // Use order.id (UUID) instead of orderNumber
                       'shop',
                       {
                         shopId: sellerId,
                         shopName: order.seller?.shopName || order.seller?.name || 'Shop',
-                        shopLogo: order.seller?.shopLogo || order.seller?.logo || null
+                        shopLogo: order.seller?.shopLogo || order.seller?.logo || null,
+                        orderNumber: order.orderNumber // Include for display purposes
                       }
                     );
                     console.log('✅ Shop review request sent successfully!');
@@ -596,7 +598,7 @@ export default function Orders({ navigation }) {
         }
         
         const productData = firstItem ? {
-          id: firstItem.id,
+          id: firstItem.product_id, // Use product_id, not order_items.id
           name: firstItem.name,
           image: imageUrl,
           price: firstItem.price,

@@ -321,18 +321,18 @@ export const getSellerReviews = async (limit = 20, offset = 0) => {
 /**
  * Send review request notification to buyer via chat
  * @param {string} buyerId - Buyer user ID
- * @param {string} orderNumber - Order number
+ * @param {string} orderId - Order ID (UUID)
  * @param {string} reviewType - 'product' or 'shop'
  * @param {object} data - Product or shop data
  */
-export const sendReviewRequest = async (buyerId, orderNumber, reviewType, data) => {
+export const sendReviewRequest = async (buyerId, orderId, reviewType, data) => {
   try {
     const token = await authApi.getStoredToken();
     if (!token) {
       throw new Error('No authentication token found. Please login again.');
     }
 
-    console.log('📧 Sending review request:', { buyerId, orderNumber, reviewType });
+    console.log('📧 Sending review request:', { buyerId, orderId, reviewType });
 
     // Determine message based on review type
     let message = '';
@@ -342,8 +342,8 @@ export const sendReviewRequest = async (buyerId, orderNumber, reviewType, data) 
       message = `⭐ How was your experience with ${data.name}? Please rate this product! Your feedback helps other buyers. Thank you! 💙`;
       productData = {
         ...data,
-        orderId: orderNumber, // Use orderId for review submission
-        orderNumber: orderNumber,
+        orderId: orderId, // Use orderId (UUID) for review submission
+        orderNumber: data.orderNumber, // Keep orderNumber for display
         isReviewRequest: true,
         reviewType: 'product'
       };
@@ -353,8 +353,8 @@ export const sendReviewRequest = async (buyerId, orderNumber, reviewType, data) 
         shopId: data.shopId,
         shopName: data.shopName,
         shopLogo: data.shopLogo,
-        orderId: orderNumber, // Use orderId for review submission
-        orderNumber: orderNumber,
+        orderId: orderId, // Use orderId (UUID) for review submission
+        orderNumber: data.orderNumber, // Keep orderNumber for display
         isReviewRequest: true,
         reviewType: 'shop'
       };

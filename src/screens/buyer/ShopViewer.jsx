@@ -242,7 +242,7 @@ export default function ShopViewer({ route, navigation }) {
       <View style={styles.infoGrid}>
         <View style={styles.infoCard}>
           <View style={styles.infoIconContainer}>
-            <Icon name="star" size={24} color="#FFD700" />
+            <Icon name="star" size={20} color="#FFD700" />
           </View>
           <Text style={styles.infoValue}>
             {reviewStats?.overall_rating > 0 ? reviewStats.overall_rating.toFixed(1) : 'New'}
@@ -252,7 +252,7 @@ export default function ShopViewer({ route, navigation }) {
         
         <View style={styles.infoCard}>
           <View style={styles.infoIconContainer}>
-            <Icon name="cube" size={24} color="#FF8B47" />
+            <Icon name="cube" size={20} color="#FF8B47" />
           </View>
           <Text style={styles.infoValue}>{shop?.totalProducts || 0}</Text>
           <Text style={styles.infoLabel}>Products</Text>
@@ -260,7 +260,7 @@ export default function ShopViewer({ route, navigation }) {
         
         <View style={styles.infoCard}>
           <View style={styles.infoIconContainer}>
-            <Icon name="chatbubble-ellipses" size={24} color="#2196F3" />
+            <Icon name="chatbubble-ellipses" size={20} color="#2196F3" />
           </View>
           <Text style={styles.infoValue}>{reviewStats?.total_reviews || 0}</Text>
           <Text style={styles.infoLabel}>Reviews</Text>
@@ -272,7 +272,7 @@ export default function ShopViewer({ route, navigation }) {
             })}
           >
             <Text style={styles.viewAllReviewsText}>View All</Text>
-            <Icon name="chevron-forward" size={16} color="#FF8B47" />
+            <Icon name="chevron-forward" size={12} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
       </View>
