@@ -567,45 +567,6 @@ export default function Profile({ navigation }) {
           </View>
         </View>
 
-        {/* Analytics Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Analytics</Text>
-          <View style={styles.menuContainer}>
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => navigation.navigate("Analytics")}
-            >
-              <View style={styles.menuIconContainer}>
-                <Icon name="analytics-outline" size={22} color="#FF8B47" />
-              </View>
-              <Text style={styles.menuText}>Sales Analytics</Text>
-              <Icon name="chevron-forward-outline" size={20} color="#999" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => navigation.navigate("Reports")}
-            >
-              <View style={styles.menuIconContainer}>
-                <Icon name="bar-chart-outline" size={22} color="#FF8B47" />
-              </View>
-              <Text style={styles.menuText}>Reports</Text>
-              <Icon name="chevron-forward-outline" size={20} color="#999" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => navigation.navigate("Customers")}
-            >
-              <View style={styles.menuIconContainer}>
-                <Icon name="people-outline" size={22} color="#FF8B47" />
-              </View>
-              <Text style={styles.menuText}>Customers</Text>
-              <Icon name="chevron-forward-outline" size={20} color="#999" />
-            </TouchableOpacity>
-          </View>
-        </View>
-
         {/* Settings Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Settings</Text>

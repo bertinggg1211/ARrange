@@ -21,7 +21,7 @@ import { getProductById, getSellerInfo } from "../../api/productApi";
 import { sendMessage } from "../../api/chatApi";
 import { BASE_URL } from "../../api/api";
 import AddReviewModal from "../../components/AddReviewModal";
-import { getProductReviews, getShopReviews } from "../../api/reviewApi";
+import { getProductReviews } from "../../api/reviewApi";
 import styles from "./styles/ProductDetail.style";
 
 const { height: screenHeight } = Dimensions.get('window');
@@ -106,7 +106,6 @@ export default function ProductDetail({ route, navigation }) {
   
   // Reviews state
   const [productReviews, setProductReviews] = useState([]);
-  const [shopReviewSample, setShopReviewSample] = useState(null);
   const [loadingReviews, setLoadingReviews] = useState(false);
   const [reviewStats, setReviewStats] = useState(null);
   
@@ -252,17 +251,6 @@ export default function ProductDetail({ route, navigation }) {
           console.log('✅ Product reviews loaded:', reviewsResponse.reviews?.length || 0);
         }
         
-        // Fetch ONE shop review if seller ID is available
-        const sellerId = product?.sellerId || product?.seller_id;
-        if (sellerId) {
-          console.log('📖 Loading shop review sample for seller:', sellerId);
-          const shopReviewsResponse = await getShopReviews(sellerId, 1, 0, 'recent');
-          
-          if (shopReviewsResponse.success && shopReviewsResponse.reviews?.length > 0) {
-            setShopReviewSample(shopReviewsResponse.reviews[0]);
-            console.log('✅ Shop review sample loaded');
-          }
-        }
       } catch (error) {
         console.error('❌ Error loading reviews:', error);
       } finally {
@@ -1045,55 +1033,6 @@ export default function ProductDetail({ route, navigation }) {
                             </View>
                           ))}
                         </View>
-                        
-                        {/* Shop Review Section - Show ONE sample */}
-                        {shopReviewSample && (
-                          <View style={styles.shopReviewSection}>
-                            <View style={styles.shopReviewHeader}>
-                              <Icon name="storefront" size={20} color="#FF8B47" />
-                              <Text style={styles.shopReviewTitle}>Shop Review</Text>
-                            </View>
-                            <View style={styles.shopReviewCard}>
-                              <View style={styles.modernReviewHeader}>
-                                <View style={styles.reviewerInfo}>
-                                  <View style={styles.modernReviewAvatar}>
-                                    {shopReviewSample.buyer?.profile_picture ? (
-                                      <Image source={{ uri: shopReviewSample.buyer.profile_picture }} style={styles.modernReviewAvatarImage} />
-                                    ) : (
-                                      <Icon name="person" size={20} color="#FFFFFF" />
-                                    )}
-                                  </View>
-                                  <View style={styles.reviewerDetails}>
-                                    <Text style={styles.modernReviewUser}>
-                                      {shopReviewSample.buyer?.full_name || 'Anonymous User'}
-                                    </Text>
-                                    <Text style={styles.modernReviewDate}>
-                                      {new Date(shopReviewSample.created_at).toLocaleDateString()}
-                                    </Text>
-                                  </View>
-                                </View>
-                                <View style={styles.reviewRatingContainer}>
-                                  <View style={styles.modernReviewRating}>
-                                    {[1, 2, 3, 4, 5].map((star) => (
-                                      <Icon
-                                        key={star}
-                                        name={star <= shopReviewSample.overall_rating ? "star" : "star-outline"}
-                                        size={14}
-                                        color="#FFD700"
-                                      />
-                                    ))}
-                                  </View>
-                                  <Text style={styles.ratingNumber}>{shopReviewSample.overall_rating}/5</Text>
-                                </View>
-                              </View>
-                              <View style={styles.reviewContent}>
-                                <Text style={styles.modernReviewText}>
-                                  {shopReviewSample.comment || 'Great shop!'}
-                                </Text>
-                              </View>
-                            </View>
-                          </View>
-                        )}
                       </>
                     ) : (
                       <View style={styles.modernNoReviewsContainer}>

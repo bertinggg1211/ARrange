@@ -8,7 +8,7 @@ const SERVER_CONFIGS = {
   LOCAL_EMULATOR: 'http://10.0.2.2:5000',
   
   // Production/Demo servers (update these with your actual URLs)
-  NGROK_CURRENT: 'https://effortlessly-holey-qiana.ngrok-free.dev',
+  PRODUCTION: 'https://arrange-wf18.onrender.com',
   
   // Backup servers (you can add more)
   BACKUP_1: 'https://your-backup-server.herokuapp.com',

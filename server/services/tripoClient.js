@@ -219,8 +219,99 @@ async function pollTaskUntilComplete(taskId, maxAttempts = 60, intervalMs = 5000
   throw new Error(`TRIPO task polling timeout after ${maxAttempts} attempts (${maxAttempts * intervalMs/1000/60} minutes)`);
 }
 
+/**
+ * Start a multi-view-to-model task with TRIPO
+ * @param {Object} params
+ * @param {string} params.productId - Product ID for reference
+ * @param {Object} params.imageUrls - Object with URLs: {front, left, back, right}
+ * @param {string} params.modelVersion - TRIPO model version (default: v3.0-20250812)
+ * @returns {Promise<{task_id: string}>}
+ */
+async function startMultiviewToModelTask({ productId, imageUrls, modelVersion = 'v3.0-20250812' }) {
+  requireEnv(['TRIPO_API_KEY']);
+
+  console.log('🚀 Starting TRIPO multi-view-to-model task for product:', productId);
+  console.log('📸 Image URLs:', {
+    front: !!imageUrls.front,
+    left: !!imageUrls.left,
+    back: !!imageUrls.back,
+    right: !!imageUrls.right
+  });
+
+  // Build files array in order: [front, left, back, right]
+  // Front is required, others can be empty {}
+  const files = [
+    // Front (REQUIRED)
+    imageUrls.front ? {
+      type: 'jpg',
+      url: imageUrls.front
+    } : null,
+    // Left (optional)
+    imageUrls.left ? {
+      type: 'jpg',
+      url: imageUrls.left
+    } : {},
+    // Back (optional)
+    imageUrls.back ? {
+      type: 'jpg',
+      url: imageUrls.back
+    } : {},
+    // Right (optional)
+    imageUrls.right ? {
+      type: 'jpg',
+      url: imageUrls.right
+    } : {}
+  ];
+
+  if (!files[0]) {
+    throw new Error('Front image is required for multi-view generation');
+  }
+
+  // Create multi-view-to-model task
+  const taskUrl = `${TRIPO_BASE_URL}/task`;
+  const requestBody = {
+    type: 'multiview_to_model',
+    model_version: modelVersion,
+    files: files,
+    texture: true,
+    pbr: true,
+    geometry_quality: 'standard' // or 'detailed' for v3.0+
+  };
+
+  console.log('📤 TRIPO multi-view request:', JSON.stringify(requestBody, null, 2));
+
+  const taskResponse = await fetch(taskUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${TRIPO_API_KEY}`,
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  const taskText = await taskResponse.text();
+  let taskData = {};
+  try {
+    taskData = taskText ? JSON.parse(taskText) : {};
+  } catch (_) {
+    console.error('Failed to parse TRIPO task response:', taskText);
+  }
+
+  if (!taskResponse.ok) {
+    const message = taskData?.message || `TRIPO multi-view task creation failed (${taskResponse.status})`;
+    const err = new Error(message);
+    err.status = taskResponse.status;
+    err.details = taskData;
+    throw err;
+  }
+
+  console.log('✅ TRIPO multi-view task created:', taskData);
+  return { ...taskData.data, productId }; // { task_id: "...", productId }
+}
+
 module.exports = {
   startImageToModelTask,
+  startMultiviewToModelTask,
   getTaskStatus,
   pollTaskUntilComplete,
   uploadImageToTripo,

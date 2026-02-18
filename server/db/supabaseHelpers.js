@@ -466,7 +466,8 @@ async function deleteProduct(productId) {
       name: product.name,
       hasImages: !!product.images,
       imageCount: product.images?.length || 0,
-      hasARModel: !!product.ar_model_url
+      hasARModel: !!product.ar_model_url,
+      arScanData: product.ar_scan_data
     });
 
     // Step 2: Delete Cloudinary images
@@ -478,31 +479,62 @@ async function deleteProduct(productId) {
           if (imageUrl && typeof imageUrl === 'string' && imageUrl.includes('cloudinary.com')) {
             const publicId = extractCloudinaryPublicId(imageUrl);
             if (publicId) {
-              console.log(`🗑️ Deleting image: ${publicId}`);
+              console.log(`🗑️ Deleting Cloudinary image: ${publicId}`);
               await deleteFile(publicId, 'image');
             }
           }
         } catch (imageError) {
-          console.warn(`⚠️ Failed to delete image ${imageUrl}:`, imageError.message);
+          console.warn(`⚠️ Failed to delete Cloudinary image ${imageUrl}:`, imageError.message);
           // Continue with other deletions even if one fails
         }
       }
-      console.log('✅ Step 2 completed: Product images deleted');
+      console.log('✅ Step 2 completed: Cloudinary images deleted');
     }
 
-    // Step 3: Delete AR model files
-    if (product.ar_model_url) {
-      console.log('🎯 Step 3: Deleting AR model from Cloudinary...');
-      try {
-        const publicId = extractCloudinaryPublicId(product.ar_model_url);
-        if (publicId) {
-          console.log(`🗑️ Deleting AR model: ${publicId}`);
-          await deleteFile(publicId, 'raw');
+    // Step 3: Delete AR model files from both Cloudinary AND Supabase Storage
+    if (product.ar_model_url || product.ar_model || product.ar_scan_data?.model_url) {
+      console.log('🎯 Step 3: Deleting AR model files...');
+      
+      const arUrls = [
+        product.ar_model_url,
+        product.ar_model,
+        product.ar_scan_data?.model_url,
+        product.ar_scan_data?.glbUrl,
+        product.ar_scan_data?.cloudinaryUrl
+      ].filter(Boolean);
+
+      for (const arUrl of arUrls) {
+        try {
+          // Delete from Cloudinary
+          if (arUrl.includes('cloudinary.com')) {
+            const publicId = extractCloudinaryPublicId(arUrl);
+            if (publicId) {
+              console.log(`🗑️ Deleting AR model from Cloudinary: ${publicId}`);
+              await deleteFile(publicId, 'raw');
+            }
+          }
+          
+          // Delete from Supabase Storage
+          if (arUrl.includes('supabase.co')) {
+            const storagePath = extractSupabaseStoragePath(arUrl, productId);
+            if (storagePath) {
+              console.log(`🗑️ Deleting AR model from Supabase Storage: ${storagePath}`);
+              const { error: storageError } = await supabase.storage
+                .from('ar-models')
+                .remove([storagePath]);
+              
+              if (storageError) {
+                console.warn(`⚠️ Failed to delete from Supabase Storage:`, storageError.message);
+              } else {
+                console.log(`✅ Deleted from Supabase Storage: ${storagePath}`);
+              }
+            }
+          }
+        } catch (arError) {
+          console.warn('⚠️ Failed to delete AR model:', arError.message);
         }
-        console.log('✅ Step 3 completed: AR model deleted');
-      } catch (arError) {
-        console.warn('⚠️ Failed to delete AR model:', arError.message);
       }
+      console.log('✅ Step 3 completed: AR model files deleted');
     }
 
     // Step 4: Delete AR scan records
@@ -522,8 +554,25 @@ async function deleteProduct(productId) {
       console.warn('⚠️ Failed to delete AR scan records:', scanError.message);
     }
 
-    // Step 5: Delete from cart items (if cart table exists)
-    console.log('🛒 Step 5: Removing from cart items...');
+    // Step 5: Delete likes/favorites for this product
+    console.log('❤️ Step 5: Deleting product likes/favorites...');
+    try {
+      const { error: likesError } = await supabase
+        .from('likes')
+        .delete()
+        .eq('product_id', productId);
+      
+      if (likesError && !likesError.message.includes('relation') && !likesError.message.includes('does not exist')) {
+        console.warn('⚠️ Error deleting likes:', likesError.message);
+      } else {
+        console.log('✅ Step 5 completed: Product likes deleted');
+      }
+    } catch (likesError) {
+      console.warn('⚠️ Failed to delete likes:', likesError.message);
+    }
+
+    // Step 6: Delete from cart items
+    console.log('🛒 Step 6: Removing from cart items...');
     try {
       const { error: cartError } = await supabase
         .from('carts')
@@ -544,14 +593,31 @@ async function deleteProduct(productId) {
       if (cartError && !cartError.message.includes('relation') && !cartError.message.includes('does not exist')) {
         console.warn('⚠️ Error updating cart items:', cartError.message);
       } else {
-        console.log('✅ Step 5 completed: Product removed from carts');
+        console.log('✅ Step 6 completed: Product removed from carts');
       }
     } catch (cartError) {
       console.warn('⚠️ Failed to update cart items:', cartError.message);
     }
 
-    // Step 6: Delete the product record
-    console.log('🗑️ Step 6: Deleting product from database...');
+    // Step 7: Delete product reviews
+    console.log('⭐ Step 7: Deleting product reviews...');
+    try {
+      const { error: reviewsError } = await supabase
+        .from('product_reviews')
+        .delete()
+        .eq('product_id', productId);
+      
+      if (reviewsError && !reviewsError.message.includes('relation') && !reviewsError.message.includes('does not exist')) {
+        console.warn('⚠️ Error deleting reviews:', reviewsError.message);
+      } else {
+        console.log('✅ Step 7 completed: Product reviews deleted');
+      }
+    } catch (reviewsError) {
+      console.warn('⚠️ Failed to delete reviews:', reviewsError.message);
+    }
+
+    // Step 8: Delete the product record
+    console.log('🗑️ Step 8: Deleting product from database...');
     const { error: deleteError } = await supabase
       .from('products')
       .delete()
@@ -562,13 +628,13 @@ async function deleteProduct(productId) {
       throw deleteError;
     }
     
-    console.log('✅ Step 6 completed: Product deleted from database');
+    console.log('✅ Step 8 completed: Product deleted from database');
 
-    // Step 7: Clear caches
-    console.log('🧹 Step 7: Clearing caches...');
+    // Step 9: Clear caches
+    console.log('🧹 Step 9: Clearing caches...');
     clearCache('products');
     clearCache('sellers');
-    console.log('✅ Step 7 completed: Caches cleared - product list updated for buyers');
+    console.log('✅ Step 9 completed: Caches cleared - product list updated for buyers');
 
     console.log('🎉 Product deletion completed successfully!');
     return true;
@@ -576,6 +642,25 @@ async function deleteProduct(productId) {
   } catch (error) {
     console.error('❌ Error in comprehensive product deletion:', error);
     throw error;
+  }
+}
+
+// Helper function to extract Supabase Storage path from URL
+function extractSupabaseStoragePath(url, productId) {
+  if (!url || !url.includes('supabase.co')) return null;
+  
+  try {
+    // Extract path after 'ar-models/'
+    const match = url.match(/ar-models\/(.+?)(?:\?|$)/);
+    if (match && match[1]) {
+      return match[1];
+    }
+    
+    // Fallback: try to construct path from productId
+    return `products/${productId}/${productId}_*.glb`;
+  } catch (error) {
+    console.warn('⚠️ Failed to extract Supabase storage path from URL:', url, error.message);
+    return null;
   }
 }
 

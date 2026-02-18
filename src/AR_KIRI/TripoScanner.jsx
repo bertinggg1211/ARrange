@@ -14,12 +14,18 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { startTripoImageToModel } from '../api/tripoApi';
+import { startTripoImageToModel, startTripoMultiviewToModel } from '../api/tripoApi';
 
 const TripoScanner = ({ route, navigation }) => {
   const { productId, productName, onScanComplete, isTemporary } = route.params || {};
 
-  const [selectedImage, setSelectedImage] = useState(null);
+  // Multi-view image states: [front, left, back, right]
+  const [multiviewImages, setMultiviewImages] = useState({
+    front: null,   // REQUIRED
+    left: null,    // Optional
+    back: null,    // Optional
+    right: null    // Optional
+  });
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   
@@ -30,8 +36,8 @@ const TripoScanner = ({ route, navigation }) => {
     hasProductId: !!productId 
   });
 
-  // Handle image selection from camera
-  const handleTakePhoto = async () => {
+  // Handle image selection from camera for specific position
+  const handleTakePhoto = async (position) => {
     const options = {
       mediaType: 'photo',
       quality: 1,
@@ -46,13 +52,16 @@ const TripoScanner = ({ route, navigation }) => {
         console.error('Camera Error:', response.errorMessage);
         Alert.alert('Error', 'Failed to open camera');
       } else if (response.assets && response.assets[0]) {
-        setSelectedImage(response.assets[0]);
+        setMultiviewImages(prev => ({
+          ...prev,
+          [position]: response.assets[0]
+        }));
       }
     });
   };
 
-  // Handle image selection from gallery
-  const handleSelectFromGallery = async () => {
+  // Handle image selection from gallery for specific position
+  const handleSelectFromGallery = async (position) => {
     const options = {
       mediaType: 'photo',
       quality: 1,
@@ -66,15 +75,47 @@ const TripoScanner = ({ route, navigation }) => {
         console.error('Image Picker Error:', response.errorMessage);
         Alert.alert('Error', 'Failed to open gallery');
       } else if (response.assets && response.assets[0]) {
-        setSelectedImage(response.assets[0]);
+        setMultiviewImages(prev => ({
+          ...prev,
+          [position]: response.assets[0]
+        }));
       }
     });
   };
 
+  // Remove image from specific position
+  const handleRemoveImage = (position) => {
+    setMultiviewImages(prev => ({
+      ...prev,
+      [position]: null
+    }));
+  };
+
+  // Show image selection options for a position
+  const handleSelectImageFor = (position) => {
+    Alert.alert(
+      `Select ${position.charAt(0).toUpperCase() + position.slice(1)} Image`,
+      'Choose how you want to add the image',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Take Photo', onPress: () => handleTakePhoto(position) },
+        { text: 'Choose from Gallery', onPress: () => handleSelectFromGallery(position) }
+      ]
+    );
+  };
+
   // Start TRIPO 3D model generation
   const handleStartGeneration = async () => {
-    if (!selectedImage) {
-      Alert.alert('No Image', 'Please select or capture an image first');
+    // Validate images
+    const imageCount = Object.values(multiviewImages).filter(img => img !== null).length;
+    
+    if (!multiviewImages.front) {
+      Alert.alert('Front Image Required', 'Please capture the front view of your product first');
+      return;
+    }
+
+    if (imageCount < 2) {
+      Alert.alert('More Images Needed', 'Please add at least 2 images (front + one other angle) for better 3D quality');
       return;
     }
 
@@ -89,28 +130,33 @@ const TripoScanner = ({ route, navigation }) => {
     setUploadProgress(0);
 
     try {
-      console.log('🚀 Starting TRIPO 3D generation...');
+      console.log('🚀 Starting TRIPO Multi-View 3D generation...');
       console.log('📋 Mode:', isTemporary ? 'NEW product (no ID yet)' : 'EXISTING product');
+      console.log('📸 Images:', {
+        front: !!multiviewImages.front,
+        left: !!multiviewImages.left,
+        back: !!multiviewImages.back,
+        right: !!multiviewImages.right,
+        total: imageCount
+      });
       
       // Simulate progress
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => Math.min(prev + 10, 90));
       }, 500);
 
-      // Start TRIPO image-to-model task
-      // Pass productId only if available (existing products), otherwise pass null
-      const result = await startTripoImageToModel({
-        productId: productId || null, // null for new products
-        imageUri: selectedImage.uri,
-        fileName: selectedImage.fileName || 'product_image.jpg',
-        fileType: selectedImage.type || 'image/jpeg',
+      // Start TRIPO multi-view-to-model task
+      const result = await startTripoMultiviewToModel({
+        productId: productId || null,
+        images: multiviewImages,
       });
 
       clearInterval(progressInterval);
       setUploadProgress(100);
 
-      console.log('✅ TRIPO task started:', result);
+      console.log('✅ TRIPO multi-view task started:', result);
       console.log('🎯 Task ID:', result.task_id);
+      console.log('📸 Images uploaded:', result.images_uploaded);
 
       // Emit event for UploadItem to listen
       // This stores the AR data temporarily until product is created
@@ -123,6 +169,8 @@ const TripoScanner = ({ route, navigation }) => {
           task_id: result.task_id,
           status: 'processing',
           source: 'tripo',
+          type: 'multiview',
+          images_count: result.images_uploaded,
           timestamp: Date.now(),
           isTemporary: isTemporary || false,
         },
@@ -130,8 +178,8 @@ const TripoScanner = ({ route, navigation }) => {
 
       // Show success message
       Alert.alert(
-        '3D Model Generation Started! 🎉',
-        `Your ${productName || 'product'} is being converted to a professional 3D model using TRIPO AI!\n\n🎯 Processing in progress\n📱 This will take a few minutes\n✅ ${isTemporary ? 'Complete your product details and click Create to save' : 'Your product will be updated when ready'}`,
+        'Multi-View 3D Model Generation Started! 🎉',
+        `Your ${productName || 'product'} is being converted to a professional 3D model using TRIPO AI Multi-View!\n\n📸 ${result.images_uploaded} images uploaded\n🎯 Processing in progress\n📱 This will take 5-15 minutes\n✅ ${isTemporary ? 'Complete your product details and click Create to save' : 'Your product will be updated when ready'}`,
         [
           {
             text: 'OK',
@@ -185,59 +233,131 @@ const TripoScanner = ({ route, navigation }) => {
         {/* Instructions */}
         <View style={styles.instructionsCard}>
           <Icon name="information-circle" size={32} color="#FF8B47" />
-          <Text style={styles.instructionsTitle}>Create 3D Model from Image</Text>
+          <Text style={styles.instructionsTitle}>Multi-View 3D Scanning</Text>
           <Text style={styles.instructionsText}>
-            Take or select a clear photo of your product. TRIPO AI will convert it into a stunning 3D model!
+            Capture your product from 4 different angles for the best 3D model quality. Front view is required, others are optional but recommended!
           </Text>
         </View>
 
-        {/* Image Preview */}
-        {selectedImage ? (
-          <View style={styles.previewContainer}>
-            <Text style={styles.sectionTitle}>Selected Image</Text>
-            <Image
-              source={{ uri: selectedImage.uri }}
-              style={styles.previewImage}
-              resizeMode="cover"
-            />
+        {/* Multi-View Image Grid */}
+        <View style={styles.multiviewGrid}>
+          {/* Front Image (REQUIRED) */}
+          <View style={styles.imageSlotContainer}>
+            <Text style={styles.imageSlotLabel}>
+              Front <Text style={styles.requiredText}>*</Text>
+            </Text>
             <TouchableOpacity
-              style={styles.removeButton}
-              onPress={() => setSelectedImage(null)}
+              style={[styles.imageSlot, multiviewImages.front && styles.imageSlotFilled]}
+              onPress={() => handleSelectImageFor('front')}
             >
-              <Icon name="close-circle" size={24} color="#FF3B30" />
-              <Text style={styles.removeButtonText}>Remove</Text>
+              {multiviewImages.front ? (
+                <>
+                  <Image source={{ uri: multiviewImages.front.uri }} style={styles.imageSlotImage} />
+                  <TouchableOpacity
+                    style={styles.imageRemoveButton}
+                    onPress={() => handleRemoveImage('front')}
+                  >
+                    <Icon name="close-circle" size={24} color="#FF3B30" />
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <View style={styles.imageSlotPlaceholder}>
+                  <Icon name="camera" size={40} color="#FF8B47" />
+                  <Text style={styles.imageSlotPlaceholderText}>Front View</Text>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
-        ) : (
-          <View style={styles.placeholderContainer}>
-            <Icon name="image-outline" size={80} color="#CCCCCC" />
-            <Text style={styles.placeholderText}>No image selected</Text>
-          </View>
-        )}
 
-        {/* Action Buttons */}
-        {!isUploading && (
-          <View style={styles.actionsContainer}>
+          {/* Left Image (Optional) */}
+          <View style={styles.imageSlotContainer}>
+            <Text style={styles.imageSlotLabel}>Left</Text>
             <TouchableOpacity
-              style={styles.actionButton}
-              onPress={handleTakePhoto}
+              style={[styles.imageSlot, multiviewImages.left && styles.imageSlotFilled]}
+              onPress={() => handleSelectImageFor('left')}
             >
-              <Icon name="camera" size={32} color="#FFFFFF" />
-              <Text style={styles.actionButtonText}>Take Photo</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.actionButton, styles.galleryButton]}
-              onPress={handleSelectFromGallery}
-            >
-              <Icon name="images" size={32} color="#FFFFFF" />
-              <Text style={styles.actionButtonText}>Choose from Gallery</Text>
+              {multiviewImages.left ? (
+                <>
+                  <Image source={{ uri: multiviewImages.left.uri }} style={styles.imageSlotImage} />
+                  <TouchableOpacity
+                    style={styles.imageRemoveButton}
+                    onPress={() => handleRemoveImage('left')}
+                  >
+                    <Icon name="close-circle" size={24} color="#FF3B30" />
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <View style={styles.imageSlotPlaceholder}>
+                  <Icon name="camera-outline" size={40} color="#CCCCCC" />
+                  <Text style={styles.imageSlotPlaceholderText}>Left View</Text>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
-        )}
+
+          {/* Back Image (Optional) */}
+          <View style={styles.imageSlotContainer}>
+            <Text style={styles.imageSlotLabel}>Back</Text>
+            <TouchableOpacity
+              style={[styles.imageSlot, multiviewImages.back && styles.imageSlotFilled]}
+              onPress={() => handleSelectImageFor('back')}
+            >
+              {multiviewImages.back ? (
+                <>
+                  <Image source={{ uri: multiviewImages.back.uri }} style={styles.imageSlotImage} />
+                  <TouchableOpacity
+                    style={styles.imageRemoveButton}
+                    onPress={() => handleRemoveImage('back')}
+                  >
+                    <Icon name="close-circle" size={24} color="#FF3B30" />
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <View style={styles.imageSlotPlaceholder}>
+                  <Icon name="camera-outline" size={40} color="#CCCCCC" />
+                  <Text style={styles.imageSlotPlaceholderText}>Back View</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Right Image (Optional) */}
+          <View style={styles.imageSlotContainer}>
+            <Text style={styles.imageSlotLabel}>Right</Text>
+            <TouchableOpacity
+              style={[styles.imageSlot, multiviewImages.right && styles.imageSlotFilled]}
+              onPress={() => handleSelectImageFor('right')}
+            >
+              {multiviewImages.right ? (
+                <>
+                  <Image source={{ uri: multiviewImages.right.uri }} style={styles.imageSlotImage} />
+                  <TouchableOpacity
+                    style={styles.imageRemoveButton}
+                    onPress={() => handleRemoveImage('right')}
+                  >
+                    <Icon name="close-circle" size={24} color="#FF3B30" />
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <View style={styles.imageSlotPlaceholder}>
+                  <Icon name="camera-outline" size={40} color="#CCCCCC" />
+                  <Text style={styles.imageSlotPlaceholderText}>Right View</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Image Counter */}
+        <View style={styles.imageCounter}>
+          <Icon name="images" size={20} color="#FF8B47" />
+          <Text style={styles.imageCounterText}>
+            {Object.values(multiviewImages).filter(img => img !== null).length} / 4 images selected
+          </Text>
+        </View>
 
         {/* Generate Button */}
-        {selectedImage && !isUploading && (
+        {multiviewImages.front && !isUploading && (
           <TouchableOpacity
             style={styles.generateButton}
             onPress={handleStartGeneration}
@@ -484,6 +604,79 @@ const styles = StyleSheet.create({
     color: '#666666',
     marginBottom: 6,
     lineHeight: 20,
+  },
+  // Multi-view grid styles
+  multiviewGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  imageSlotContainer: {
+    width: '48%',
+    marginBottom: 16,
+  },
+  imageSlotLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    marginBottom: 8,
+  },
+  requiredText: {
+    color: '#FF3B30',
+    fontSize: 16,
+  },
+  imageSlot: {
+    width: '100%',
+    height: 160,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#E5E5E5',
+    borderStyle: 'dashed',
+    overflow: 'hidden',
+    backgroundColor: '#F9F9F9',
+  },
+  imageSlotFilled: {
+    borderStyle: 'solid',
+    borderColor: '#FF8B47',
+  },
+  imageSlotImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  imageSlotPlaceholder: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imageSlotPlaceholderText: {
+    fontSize: 12,
+    color: '#999999',
+    marginTop: 8,
+  },
+  imageRemoveButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 12,
+  },
+  imageCounter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF3E0',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  imageCounterText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FF8B47',
+    marginLeft: 8,
   },
 });
 

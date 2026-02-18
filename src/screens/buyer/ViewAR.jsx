@@ -58,10 +58,11 @@ export default function ViewAR({ route, navigation }) {
       modelUrl = product.arModel;
       hasModel = true;
     } 
-    // PRIORITY 2: Check arScanData (KIRI Engine or fallback)
+    // PRIORITY 2: Check arScanData (KIRI Engine or TRIPO fallback)
     else {
-      console.log('🎯 ViewAR: Checking arScanData (KIRI Engine)');
-      modelUrl = product?.arScanData?.glbUrl || 
+      console.log('🎯 ViewAR: Checking arScanData (KIRI Engine or TRIPO)');
+      modelUrl = product?.arScanData?.model_url ||  // TRIPO uses model_url
+                 product?.arScanData?.glbUrl || 
                  product?.arScanData?.cloudinaryUrl || 
                  product?.arScanData?.modelUrl;
       hasModel = !!modelUrl;
@@ -97,7 +98,9 @@ export default function ViewAR({ route, navigation }) {
   console.log('📊 Final has model:', finalHasModel);
   console.log('📊 GLB URL:', product?.arScanData?.glbUrl);
   console.log('📊 Cloudinary URL:', product?.arScanData?.cloudinaryUrl);
-  console.log('📊 Model URL:', product?.arScanData?.modelUrl);
+  console.log('📊 Model URL (camelCase):', product?.arScanData?.modelUrl);
+  console.log('📊 Model URL (underscore):', product?.arScanData?.model_url);
+  console.log('📊 AR Model field:', product?.arModel);
   console.log('📊 Product keys:', Object.keys(product || {}));
   console.log('📊 ArScanData keys:', Object.keys(product?.arScanData || {}));
   

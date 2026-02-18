@@ -32,7 +32,6 @@ import * as notificationApi from '../../api/notificationApi';
 const { width } = Dimensions.get('window');
 
 export default function Home({ navigation }) {
-  const [activeTab, setActiveTab] = useState('Products');
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const [stats, setStats] = useState({ revenue: 0, orders: 0, products: 0, rating: 0, totalSales: 0 });
@@ -54,8 +53,6 @@ export default function Home({ navigation }) {
   const [expandedMenus, setExpandedMenus] = useState({});
   const menuAnimations = useRef({});
   
-  // No recent orders yet - placeholder data
-  const recentOrders = [];
 
   // Use sellerProfile state if available, otherwise fallback to user context
   const currentProfile = sellerProfile || user;
@@ -432,39 +429,6 @@ export default function Home({ navigation }) {
           <Text style={styles.greetingText}>{getGreeting()}</Text>
           <Text style={styles.shopOwnerName}>{ownerName}</Text>
         </View>
-        <TouchableOpacity 
-          style={styles.notificationButton}
-          onPress={() => navigation.navigate('Notifications')}
-        >
-          <View style={{ position: 'relative' }}>
-            {/* Dark notification icon for visibility on white background */}
-            <Icon name="notifications-outline" size={28} color="#1A1A1A" />
-            
-            {/* Notification dot */}
-            {unreadNotifications > 0 && (
-              <View style={{
-                position: 'absolute',
-                top: 2,
-                right: 2,
-                width: 10,
-                height: 10,
-                borderRadius: 5,
-                backgroundColor: '#FF8B47',
-                borderWidth: 2,
-                borderColor: '#FFFFFF',
-              }} />
-            )}
-            
-            {/* Notification count badge */}
-            {unreadNotifications > 0 && (
-              <View style={styles.notificationCountBadge}>
-                <Text style={styles.notificationCountText}>
-                  {unreadNotifications > 9 ? '9+' : unreadNotifications}
-                </Text>
-              </View>
-            )}
-          </View>
-        </TouchableOpacity>
       </View>
     </View>
   );
@@ -813,54 +777,7 @@ export default function Home({ navigation }) {
     );
   };
 
-  // Render modern order item
-  const renderOrderItem = ({ item }) => (
-    <TouchableOpacity 
-      style={styles.modernOrderCard}
-      onPress={() => navigation.navigate('Orders')}
-    >
-      <View style={styles.orderIconContainer}>
-        <Icon name="receipt-outline" size={24} color="#FF8B47" />
-      </View>
-      
-      <View style={styles.modernOrderInfo}>
-        <View style={styles.orderTopRow}>
-          <Text style={styles.modernOrderCustomer}>{item.customer}</Text>
-          <Text style={styles.modernOrderAmount}>{item.amount}</Text>
-        </View>
-        
-        <View style={styles.orderBottomRow}>
-          <Text style={styles.modernOrderDate}>{item.date}</Text>
-          <View style={[styles.modernOrderStatus, 
-            item.status === 'Delivered' ? styles.statusDelivered : 
-            item.status === 'Shipped' ? styles.statusShipped : 
-            styles.statusProcessing]}>
-            <Text style={styles.modernOrderStatusText}>{item.status}</Text>
-          </View>
-        </View>
-      </View>
-      
-      <Icon name="chevron-forward" size={20} color="#CCC" />
-    </TouchableOpacity>
-  );
 
-  // Compute list props based on tab (avoid nested VirtualizedLists)
-  const listConfig = useMemo(() => {
-    if (activeTab === 'Products') {
-      return {
-        data: sellerProducts,
-        renderItem: renderProductItem,
-        keyExtractor: (item) => item.id,
-        contentContainerStyle: styles.productList,
-      };
-    }
-    return {
-      data: recentOrders,
-      renderItem: renderOrderItem,
-      keyExtractor: (item) => item.id,
-      contentContainerStyle: styles.orderList,
-    };
-  }, [activeTab]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -918,117 +835,81 @@ export default function Home({ navigation }) {
           </View>
         </View>
         
-        {/* Tab Navigation */}
-        <View style={styles.modernTabContainer}>
-          {['Products', 'Orders'].map(tab => (
-            <TouchableOpacity 
-              key={tab}
-              style={[styles.modernTab, activeTab === tab && styles.modernActiveTab]}
-              onPress={() => setActiveTab(tab)}
-            >
-              <Text style={[styles.modernTabText, activeTab === tab && styles.modernActiveTabText]}>
-                {tab}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        {/* Tab Navigation - Removed, showing only Products */}
         
-        {/* Content List */}
+        {/* Content List - Products Only */}
         <View style={styles.contentContainer}>
-          {activeTab === 'Products' ? (
-            <View>
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.contentSectionTitle}>Your Products</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <View style={{ 
-                    flexDirection: 'row', 
-                    alignItems: 'center', 
-                    backgroundColor: '#FFF5F0', 
-                    paddingHorizontal: 12, 
-                    paddingVertical: 6, 
-                    borderRadius: 12,
-                    marginRight: 12,
-                    borderWidth: 1,
-                    borderColor: '#FFE6D7'
+          <View>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.contentSectionTitle}>Your Products</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ 
+                  flexDirection: 'row', 
+                  alignItems: 'center', 
+                  backgroundColor: '#FFF5F0', 
+                  paddingHorizontal: 12, 
+                  paddingVertical: 6, 
+                  borderRadius: 12,
+                  marginRight: 12,
+                  borderWidth: 1,
+                  borderColor: '#FFE6D7'
+                }}>
+                  <Icon name="cube" size={16} color="#FF8B47" />
+                  <Text style={{ 
+                    color: '#FF8B47', 
+                    fontSize: 14, 
+                    fontWeight: '700',
+                    marginLeft: 6 
                   }}>
-                    <Icon name="cube" size={16} color="#FF8B47" />
-                    <Text style={{ 
-                      color: '#FF8B47', 
-                      fontSize: 14, 
-                      fontWeight: '700',
-                      marginLeft: 6 
-                    }}>
-                      {sellerProducts.length}
-                    </Text>
-                  </View>
-                  <TouchableOpacity 
-                    onPress={() => {
-                      setSellerProducts([]);
-                      fetchSellerProducts();
-                    }}
-                    style={{ marginRight: 12 }}
-                  >
-                    <Icon name="refresh" size={22} color="#4A90E2" />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => navigation.navigate('Upload')}>
-                    <Text style={styles.viewAllLink}>Add Product</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-              {loadingProducts ? (
-                <View style={[styles.modernProductCard, { alignItems: 'center', justifyContent: 'center' }]}>
-                  <Icon name="refresh" size={28} color="#B0B0B0" />
-                  <Text style={{ marginTop: 8, color: '#888' }}>Loading products...</Text>
-                </View>
-              ) : sellerProducts.length === 0 ? (
-                <View style={styles.emptyStateContainer}>
-                  <View style={styles.emptyStateIconContainer}>
-                    <Icon name="storefront" size={40} color="#FF8B47" />
-                  </View>
-                  <Text style={styles.emptyStateTitle}>
-                    Welcome to Your Store!
+                    {sellerProducts.length}
                   </Text>
-                  <Text style={styles.emptyStateDescription}>
-                    You haven't created any products yet. Start building your catalog and reach customers with your amazing products.
-                  </Text>
-                  <TouchableOpacity 
-                    style={styles.emptyStateButton}
-                    onPress={() => navigation.navigate('Upload')}
-                  >
-                    <Icon name="add-circle" size={18} color="#FFFFFF" />
-                    <Text style={styles.emptyStateButtonText}>Create Your First Product</Text>
-                  </TouchableOpacity>
                 </View>
-              ) : (
-                sellerProducts.map(item => (
-                  <View key={`product-${item.id}-${item.updatedAt || 'initial'}`}>
-                    {renderProductItem({ item })}
-                  </View>
-                ))
-              )}
-            </View>
-          ) : (
-            <View>
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.contentSectionTitle}>Recent Orders</Text>
-                <TouchableOpacity onPress={() => navigation.navigate('Orders')}>
-                  <Text style={styles.viewAllLink}>View All</Text>
+                <TouchableOpacity 
+                  onPress={() => {
+                    setSellerProducts([]);
+                    fetchSellerProducts();
+                  }}
+                  style={{ marginRight: 12 }}
+                >
+                  <Icon name="refresh" size={22} color="#4A90E2" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => navigation.navigate('Upload')}>
+                  <Text style={styles.viewAllLink}>Add Product</Text>
                 </TouchableOpacity>
               </View>
-              {recentOrders.length === 0 ? (
-                <View style={[styles.modernOrderCard, { alignItems: 'center' }]}>
-                  <Icon name="receipt-outline" size={24} color="#FF8B47" />
-                  <Text style={{ marginLeft: 12, color: '#888' }}>No recent orders</Text>
-                </View>
-              ) : (
-                recentOrders.map(item => (
-                  <View key={item.id}>
-                    {renderOrderItem({ item })}
-                  </View>
-                ))
-              )}
             </View>
-          )}
+            {loadingProducts ? (
+              <View style={[styles.modernProductCard, { alignItems: 'center', justifyContent: 'center' }]}>
+                <Icon name="refresh" size={28} color="#B0B0B0" />
+                <Text style={{ marginTop: 8, color: '#888' }}>Loading products...</Text>
+              </View>
+            ) : sellerProducts.length === 0 ? (
+              <View style={styles.emptyStateContainer}>
+                <View style={styles.emptyStateIconContainer}>
+                  <Icon name="storefront" size={40} color="#FF8B47" />
+                </View>
+                <Text style={styles.emptyStateTitle}>
+                  Welcome to Your Store!
+                </Text>
+                <Text style={styles.emptyStateDescription}>
+                  You haven't created any products yet. Start building your catalog and reach customers with your amazing products.
+                </Text>
+                <TouchableOpacity 
+                  style={styles.emptyStateButton}
+                  onPress={() => navigation.navigate('Upload')}
+                >
+                  <Icon name="add-circle" size={18} color="#FFFFFF" />
+                  <Text style={styles.emptyStateButtonText}>Create Your First Product</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              sellerProducts.map(item => (
+                <View key={`product-${item.id}-${item.updatedAt || 'initial'}`}>
+                  {renderProductItem({ item })}
+                </View>
+              ))
+            )}
+          </View>
         </View>
       </ScrollView>
 

@@ -82,6 +82,9 @@ async function handleTripoTaskCompletion(taskId, productId) {
           model_version: completedTask.input?.model_version || 'v2.5-20250123',
           storage: 'supabase',
           storagePath: modelPath,
+          model_url: arModelUrl, // ✅ ADD MODEL URL HERE
+          status: 'completed', // ✅ ADD STATUS HERE
+          type: 'multiview',
         },
         updated_at: new Date().toISOString(),
       })

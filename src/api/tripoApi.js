@@ -99,6 +99,80 @@ export const getTripoTaskStatus = async (taskId) => {
 };
 
 /**
+ * Start TRIPO multi-view-to-model generation
+ * @param {Object} params
+ * @param {string|null} params.productId - Product ID (null for new products)
+ * @param {Object} params.images - Multi-view images object {front, left, back, right}
+ * @returns {Promise<{success: boolean, task_id: string}>}
+ */
+export const startTripoMultiviewToModel = async ({ productId, images }) => {
+  try {
+    console.log('🚀 Starting TRIPO multi-view-to-model generation...');
+    console.log('Product ID:', productId || 'null (new product)');
+    console.log('Images:', {
+      front: !!images.front,
+      left: !!images.left,
+      back: !!images.back,
+      right: !!images.right
+    });
+
+    // Get auth token
+    const token = await AsyncStorage.getItem('authToken');
+    if (!token) {
+      throw new Error('Not authenticated');
+    }
+
+    // Create FormData for multipart upload with multiple images
+    const formData = new FormData();
+    
+    // Add all images in the correct order: [front, left, back, right]
+    const positions = ['front', 'left', 'back', 'right'];
+    positions.forEach((position) => {
+      if (images[position]) {
+        formData.append(position, {
+          uri: images[position].uri,
+          type: images[position].type || 'image/jpeg',
+          name: `product_${position}_${Date.now()}.jpg`,
+        });
+      }
+    });
+    
+    // Append productId (can be null for new products)
+    if (productId) {
+      formData.append('productId', productId);
+    } else {
+      formData.append('productId', 'null');
+      console.log('📝 No productId - generating AR for new product');
+    }
+
+    console.log('📤 Sending multi-view images to backend...');
+
+    // Send to backend
+    const response = await fetch(`${BASE_URL}/api/ar/tripo/start-multiview`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        // Don't set Content-Type - let browser set it with boundary
+      },
+      body: formData,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || data.message || 'Failed to start TRIPO multi-view generation');
+    }
+
+    console.log('✅ TRIPO multi-view task started:', data);
+    return data;
+
+  } catch (error) {
+    console.error('❌ TRIPO Multi-view API error:', error);
+    throw error;
+  }
+};
+
+/**
  * Check if product has completed AR model
  * @param {string} productId - Product ID
  * @returns {Promise<{success: boolean, has_ar: boolean, ar_model: string}>}

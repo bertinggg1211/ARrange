@@ -716,10 +716,10 @@ export default function Orders({ navigation }) {
     // Handle search
     const searchLower = searchQuery.toLowerCase();
     const matchesSearch = searchQuery === '' || 
-                         order.orderNumber.toLowerCase().includes(searchLower) ||
-                         order.customer.name.toLowerCase().includes(searchLower) ||
+                         order.orderNumber?.toLowerCase().includes(searchLower) ||
+                         order.customer?.name?.toLowerCase().includes(searchLower) ||
                          (order.items && order.items.some(item => 
-                           item.name.toLowerCase().includes(searchLower)
+                           item?.name?.toLowerCase().includes(searchLower)
                          ));
     
     return matchesTab && matchesSearch;
@@ -805,7 +805,7 @@ export default function Orders({ navigation }) {
           {/* Customer Section with Glass Effect */}
           <View style={styles.glassCustomerSection}>
             <View style={styles.customerAvatarContainer}>
-              {item.customer.avatar ? (
+              {item.customer?.avatar ? (
                 <Image source={item.customer.avatar} style={styles.stunningCustomerAvatar} />
               ) : (
                 <View style={[styles.stunningCustomerAvatar, { alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.15)' }]}>
@@ -816,19 +816,19 @@ export default function Orders({ navigation }) {
             </View>
             
             <View style={styles.customerInfoSection}>
-              <Text style={styles.stunningCustomerName}>{item.customer.name}</Text>
+              <Text style={styles.stunningCustomerName}>{item.customer?.name || 'Customer'}</Text>
               <View style={styles.orderMetaRow}>
                 <Icon name="receipt-outline" size={14} color="rgba(255,255,255,0.8)" />
-                <Text style={styles.stunningOrderNumber}>{item.orderNumber}</Text>
+                <Text style={styles.stunningOrderNumber}>{item.orderNumber || 'N/A'}</Text>
               </View>
               <View style={styles.orderMetaRow}>
                 <Icon name="time-outline" size={14} color="rgba(255,255,255,0.8)" />
-                <Text style={styles.stunningOrderDate}>{item.date}</Text>
+                <Text style={styles.stunningOrderDate}>{item.date || 'N/A'}</Text>
               </View>
             </View>
 
             <View style={styles.orderValueSection}>
-              <Text style={styles.stunningOrderTotal}>{item.total}</Text>
+              <Text style={styles.stunningOrderTotal}>{item.total || '₱0'}</Text>
               <Text style={styles.orderTotalLabel}>Total</Text>
             </View>
           </View>
@@ -885,17 +885,17 @@ export default function Orders({ navigation }) {
               })()}
               <View style={styles.productImageOverlay}>
                 <Text style={styles.productCount}>
-                  {item.items.length} {item.items.length > 1 ? 'Items' : 'Item'}
+                  {item.items?.length || 0} {(item.items?.length || 0) > 1 ? 'Items' : 'Item'}
                 </Text>
               </View>
             </View>
             
             <View style={styles.productInfoGlass}>
               <Text style={styles.stunningProductName} numberOfLines={1}>
-                {item.items[0].name}
+                {item.items?.[0]?.name || 'Product'}
               </Text>
               <Text style={styles.productDetails}>
-                {item.items.length > 1 ? `+${item.items.length - 1} more items` : `Qty: ${item.items[0].quantity}`}
+                {item.items && item.items.length > 1 ? `+${item.items.length - 1} more items` : `Qty: ${item.items?.[0]?.quantity || 1}`}
               </Text>
             </View>
           </View>
@@ -1256,11 +1256,11 @@ export default function Orders({ navigation }) {
                 <View style={styles.orderSummaryCard}>
                   <View style={styles.summaryRow}>
                     <Text style={styles.summaryLabel}>Order Number:</Text>
-                    <Text style={styles.summaryValue}>{currentOrderDetails.orderNumber}</Text>
+                    <Text style={styles.summaryValue}>{currentOrderDetails.orderNumber || 'N/A'}</Text>
                   </View>
                   <View style={styles.summaryRow}>
                     <Text style={styles.summaryLabel}>Order Date:</Text>
-                    <Text style={styles.summaryValue}>{currentOrderDetails.orderDate}</Text>
+                    <Text style={styles.summaryValue}>{currentOrderDetails.orderDate || currentOrderDetails.date || 'N/A'}</Text>
                   </View>
                   <View style={styles.summaryRow}>
                     <Text style={styles.summaryLabel}>Status:</Text>
@@ -1272,12 +1272,12 @@ export default function Orders({ navigation }) {
                       currentOrderDetails.status === 'Delivered' ? styles.deliveredBadge : 
                       styles.cancelledBadge
                     ]}>
-                      <Text style={styles.modernStatusText}>{currentOrderDetails.status}</Text>
+                      <Text style={styles.modernStatusText}>{currentOrderDetails.status || 'Unknown'}</Text>
                     </View>
                   </View>
                   <View style={styles.summaryRow}>
                     <Text style={styles.summaryLabel}>Payment Status:</Text>
-                    <Text style={[styles.summaryValue, { color: '#4CAF50' }]}>{currentOrderDetails.paymentStatus}</Text>
+                    <Text style={[styles.summaryValue, { color: '#4CAF50' }]}>{currentOrderDetails.paymentStatus || 'N/A'}</Text>
                   </View>
                 </View>
               </View>
@@ -1286,11 +1286,17 @@ export default function Orders({ navigation }) {
               <View style={styles.modalSection}>
                 <Text style={styles.modalSectionTitle}>Customer Information</Text>
                 <View style={styles.customerCard}>
-                  <Image source={currentOrderDetails.customer.avatar} style={styles.customerModalAvatar} />
+                  {currentOrderDetails.customer?.avatar ? (
+                    <Image source={currentOrderDetails.customer.avatar} style={styles.customerModalAvatar} />
+                  ) : (
+                    <View style={[styles.customerModalAvatar, { backgroundColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center' }]}>
+                      <Icon name="person" size={24} color="#CCC" />
+                    </View>
+                  )}
                   <View style={styles.customerModalInfo}>
-                    <Text style={styles.customerModalName}>{currentOrderDetails.customer.name}</Text>
-                    <Text style={styles.customerModalContact}>{currentOrderDetails.customer.phone}</Text>
-                    <Text style={styles.customerModalContact}>{currentOrderDetails.customer.email}</Text>
+                    <Text style={styles.customerModalName}>{currentOrderDetails.customer?.name || 'Customer'}</Text>
+                    <Text style={styles.customerModalContact}>{currentOrderDetails.customer?.phone || 'N/A'}</Text>
+                    <Text style={styles.customerModalContact}>{currentOrderDetails.customer?.email || 'N/A'}</Text>
                   </View>
                 </View>
               </View>
@@ -1298,24 +1304,24 @@ export default function Orders({ navigation }) {
               {/* Items */}
               <View style={styles.modalSection}>
                 <Text style={styles.modalSectionTitle}>Items Ordered</Text>
-                {currentOrderDetails.items.map(item => {
+                {currentOrderDetails.items?.map(item => {
                   console.log('🖼️ Modal item image:', {
-                    itemId: item.id,
-                    itemName: item.name,
-                    itemImage: item.image,
-                    imageType: typeof item.image
+                    itemId: item?.id,
+                    itemName: item?.name,
+                    itemImage: item?.image,
+                    imageType: typeof item?.image
                   });
                   
                   return (
-                    <View key={item.id} style={styles.modalProductItem}>
+                    <View key={item?.id || Math.random()} style={styles.modalProductItem}>
                       {(() => {
-                        const imageSource = getValidImageSource(item.image);
+                        const imageSource = getValidImageSource(item?.image);
                         return imageSource ? (
                           <Image 
                             source={imageSource} 
                             style={styles.modalProductImage}
                             onError={(error) => console.log('❌ Modal product image load error:', error.nativeEvent.error)}
-                            onLoad={() => console.log('✅ Modal product image loaded successfully:', item.image)}
+                            onLoad={() => console.log('✅ Modal product image loaded successfully:', item?.image)}
                           />
                         ) : (
                           <View style={[styles.modalProductImage, { backgroundColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center' }]}>
@@ -1325,9 +1331,9 @@ export default function Orders({ navigation }) {
                         );
                       })()}
                       <View style={styles.modalProductInfo}>
-                        <Text style={styles.modalProductName}>{item.name}</Text>
-                        <Text style={styles.modalProductSku}>SKU: {item.sku}</Text>
-                        <Text style={styles.modalProductPrice}>{item.price} × {item.quantity}</Text>
+                        <Text style={styles.modalProductName}>{item?.name || 'Product'}</Text>
+                        <Text style={styles.modalProductSku}>SKU: {item?.sku || 'N/A'}</Text>
+                        <Text style={styles.modalProductPrice}>{item?.price || '₱0'} × {item?.quantity || 1}</Text>
                       </View>
                     </View>
                   );
@@ -1338,10 +1344,10 @@ export default function Orders({ navigation }) {
               <View style={styles.modalSection}>
                 <Text style={styles.modalSectionTitle}>Shipping Information</Text>
                 <View style={styles.shippingCard}>
-                  <Text style={styles.shippingRecipient}>{currentOrderDetails.shippingAddress.recipient}</Text>
-                  <Text style={styles.shippingAddress}>{currentOrderDetails.shippingAddress.fullAddress}</Text>
-                  <Text style={styles.shippingPhone}>{currentOrderDetails.shippingAddress.phone}</Text>
-                  {currentOrderDetails.shippingAddress.notes && (
+                  <Text style={styles.shippingRecipient}>{currentOrderDetails.shippingAddress?.recipient || 'N/A'}</Text>
+                  <Text style={styles.shippingAddress}>{currentOrderDetails.shippingAddress?.fullAddress || 'No address provided'}</Text>
+                  <Text style={styles.shippingPhone}>{currentOrderDetails.shippingAddress?.phone || 'N/A'}</Text>
+                  {currentOrderDetails.shippingAddress?.notes && (
                     <Text style={styles.shippingNotes}>Note: {currentOrderDetails.shippingAddress.notes}</Text>
                   )}
                 </View>
@@ -1353,19 +1359,19 @@ export default function Orders({ navigation }) {
                 <View style={styles.paymentCard}>
                   <View style={styles.paymentRow}>
                     <Text style={styles.paymentLabel}>Subtotal:</Text>
-                    <Text style={styles.paymentValue}>{currentOrderDetails.subtotal}</Text>
+                    <Text style={styles.paymentValue}>{currentOrderDetails.subtotal || '₱0'}</Text>
                   </View>
                   <View style={styles.paymentRow}>
                     <Text style={styles.paymentLabel}>Shipping:</Text>
-                    <Text style={styles.paymentValue}>{currentOrderDetails.shippingFee}</Text>
+                    <Text style={styles.paymentValue}>{currentOrderDetails.shippingFee || '₱0'}</Text>
                   </View>
                   <View style={[styles.paymentRow, styles.totalRow]}>
                     <Text style={styles.totalLabel}>Total:</Text>
-                    <Text style={styles.totalValue}>{currentOrderDetails.total}</Text>
+                    <Text style={styles.totalValue}>{currentOrderDetails.total || '₱0'}</Text>
                   </View>
                   <View style={styles.paymentRow}>
                     <Text style={styles.paymentLabel}>Payment Method:</Text>
-                    <Text style={styles.paymentValue}>{currentOrderDetails.paymentMethod}</Text>
+                    <Text style={styles.paymentValue}>{currentOrderDetails.paymentMethod || 'N/A'}</Text>
                   </View>
                 </View>
               </View>
