@@ -3,7 +3,7 @@ const rateLimit = require('express-rate-limit');
 // Strict rate limiter for auth endpoints (login)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // 5 attempts per window
+  max: 20, // 20 attempts per window (increased from 5 for testing)
   message: {
     message: 'Too many authentication attempts. Please try again in 15 minutes.',
     error: 'RATE_LIMIT_EXCEEDED'
@@ -17,10 +17,10 @@ const authLimiter = rateLimit({
 
 // Moderate rate limiter for signup
 const signupLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 3, // 3 signups per hour per IP
+  windowMs: 15 * 60 * 1000, // 15 minutes (reduced from 1 hour)
+  max: 20, // 20 signups per window (increased from 3 for testing)
   message: {
-    message: 'Too many accounts created from this IP. Please try again in 1 hour.',
+    message: 'Too many accounts created from this IP. Please try again in 15 minutes.',
     error: 'SIGNUP_LIMIT_EXCEEDED'
   },
   standardHeaders: true,
