@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import BuyerNavigator from "./src/navigation/BuyerTabNavigator";
 import SellerNavigator from "./src/navigation/SellerTabNavigator";
+import AdminNavigator from "./src/navigation/AdminStackNavigator";
 import { CartProvider } from "./src/context/CartContext";
 import { LikesProvider } from "./src/context/LikesContext";
 import { ChatProvider } from "./src/context/ChatContext";
@@ -69,6 +70,8 @@ function AppNavigator() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {!user ? (
         <Stack.Screen name="Auth" component={AuthNavigator} />
+      ) : user.role === 'admin' ? (
+        <Stack.Screen name="AdminRoot" component={AdminNavigator} />
       ) : user.role === 'buyer' ? (
         <Stack.Screen name="BuyerRoot" component={BuyerNavigator} />
       ) : (

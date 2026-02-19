@@ -2,210 +2,540 @@ const express = require('express');
 const router = express.Router();
 const { supabase } = require('../db/supabase');
 const auth = require('../middleware/auth');
+const bcrypt = require('bcryptjs');
 
-// Clear all orders (Admin only)
-router.delete('/orders/clear', auth, async (req, res) => {
+// Middleware to check if user is admin
+const isAdmin = async (req, res, next) => {
   try {
-    console.log('🗑️ Admin clearing all orders...');
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', req.user.id)
+      .single();
     
-    // Check if user is admin (you can add admin role check here)
-    // For now, allowing any authenticated user to clear orders
-    
-    // Step 1: Delete order status history
-    console.log('📊 Deleting order status history...');
-    const { error: historyError } = await supabase
-      .from('order_status_history')
-      .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000');
-    
-    if (historyError) {
-      console.warn('⚠️ Warning deleting order status history:', historyError.message);
-    }
-
-    // Step 2: Delete order items
-    console.log('🛒 Deleting order items...');
-    const { error: itemsError } = await supabase
-      .from('order_items')
-      .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000');
-    
-    if (itemsError) {
-      console.warn('⚠️ Warning deleting order items:', itemsError.message);
-    }
-
-    // Step 3: Delete orders
-    console.log('📦 Deleting orders...');
-    const { error: ordersError } = await supabase
-      .from('orders')
-      .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000');
-    
-    if (ordersError) {
-      console.error('❌ Error deleting orders:', ordersError);
-      return res.status(500).json({
+    if (error || !user || user.role !== 'admin') {
+      return res.status(403).json({
         success: false,
-        message: 'Failed to clear orders',
-        error: ordersError.message
+        message: 'Admin access required'
       });
     }
-
-    // Step 4: Clear cart items
-    console.log('🛍️ Clearing cart items...');
-    const { error: cartItemsError } = await supabase
-      .from('cart_items')
-      .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000');
     
-    if (cartItemsError) {
-      console.warn('⚠️ Warning clearing cart items:', cartItemsError.message);
-    }
-
-    // Step 5: Reset cart totals
-    console.log('💰 Resetting cart totals...');
-    const { error: cartResetError } = await supabase
-      .from('carts')
-      .update({
-        total_amount: 0.00,
-        updated_at: new Date().toISOString()
-      })
-      .neq('id', '00000000-0000-0000-0000-000000000000');
-    
-    if (cartResetError) {
-      console.warn('⚠️ Warning resetting cart totals:', cartResetError.message);
-    }
-
-    console.log('✅ All orders cleared successfully');
-    
-    res.json({
-      success: true,
-      message: 'All orders cleared successfully',
-      timestamp: new Date().toISOString()
-    });
-
+    next();
   } catch (error) {
-    console.error('❌ Error in clear orders:', error);
+    console.error('Error checking admin status:', error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error',
+      message: 'Error verifying admin status'
+    });
+  }
+};
+
+// ==================== USER MANAGEMENT ====================
+
+// Get all users with statistics
+router.get('/users', auth, isAdmin, async (req, res) => {
+  try {
+    const { data: users, error } = await supabase
+      .from('users')
+      .select('id, email, full_name, role, created_at, profile_picture')
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+
+    // Get statistics for each user
+    const usersWithStats = await Promise.all(users.map(async (user) => {
+      let stats = {};
+      
+      if (user.role === 'seller') {
+        // Get seller stats
+        const { data: products } = await supabase
+          .from('products')
+          .select('id')
+          .eq('seller_id', user.id);
+        
+        const { data: orders } = await supabase
+          .from('orders')
+          .select('id, total_amount')
+          .eq('seller_id', user.id);
+        
+        const { data: userInfo } = await supabase
+          .from('users')
+          .select('shop_name')
+          .eq('id', user.id)
+          .single();
+        
+        stats = {
+          totalProducts: products?.length || 0,
+          totalOrders: orders?.length || 0,
+          totalRevenue: orders?.reduce((sum, order) => sum + parseFloat(order.total_amount || 0), 0) || 0,
+          shopName: userInfo?.shop_name || 'N/A'
+        };
+      } else if (user.role === 'buyer') {
+        // Get buyer stats
+        const { data: orders } = await supabase
+          .from('orders')
+          .select('id, total_amount')
+          .eq('buyer_id', user.id);
+        
+        stats = {
+          totalOrders: orders?.length || 0,
+          totalSpent: orders?.reduce((sum, order) => sum + parseFloat(order.total_amount || 0), 0) || 0
+        };
+      }
+      
+      return { ...user, stats };
+    }));
+
+    res.json({
+      success: true,
+      users: usersWithStats,
+      total: usersWithStats.length
+    });
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching users',
       error: error.message
     });
   }
 });
 
-// Clear user's orders
-router.delete('/orders/clear-user/:userId', auth, async (req, res) => {
+// Get single user details
+router.get('/users/:userId', auth, isAdmin, async (req, res) => {
   try {
     const { userId } = req.params;
-    const currentUserId = req.user.id;
     
-    console.log(`🗑️ Clearing orders for user: ${userId}`);
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single();
     
-    // Check if user is clearing their own orders or is admin
-    if (userId !== currentUserId) {
-      return res.status(403).json({
+    if (error) throw error;
+    if (!user) {
+      return res.status(404).json({
         success: false,
-        message: 'You can only clear your own orders'
+        message: 'User not found'
       });
     }
 
-    // Get user's orders
-    const { data: userOrders, error: ordersError } = await supabase
-      .from('orders')
-      .select('id')
-      .or(`buyer_id.eq.${userId},seller_id.eq.${userId}`);
-    
-    if (ordersError) {
-      console.error('❌ Error fetching user orders:', ordersError);
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to fetch user orders',
-        error: ordersError.message
-      });
-    }
+    // Remove password hash from response
+    delete user.password_hash;
 
-    if (!userOrders || userOrders.length === 0) {
-      return res.json({
-        success: true,
-        message: 'No orders found for this user',
-        ordersCleared: 0
-      });
-    }
-
-    const orderIds = userOrders.map(order => order.id);
-    console.log(`📦 Found ${orderIds.length} orders to delete`);
-
-    // Delete order status history
-    const { error: historyError } = await supabase
-      .from('order_status_history')
-      .delete()
-      .in('order_id', orderIds);
-    
-    if (historyError) {
-      console.warn('⚠️ Warning deleting order status history:', historyError.message);
-    }
-
-    // Delete order items
-    const { error: itemsError } = await supabase
-      .from('order_items')
-      .delete()
-      .in('order_id', orderIds);
-    
-    if (itemsError) {
-      console.warn('⚠️ Warning deleting order items:', itemsError.message);
-    }
-
-    // Delete orders
-    const { error: deleteOrdersError } = await supabase
-      .from('orders')
-      .delete()
-      .in('id', orderIds);
-    
-    if (deleteOrdersError) {
-      console.error('❌ Error deleting orders:', deleteOrdersError);
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to delete orders',
-        error: deleteOrdersError.message
-      });
-    }
-
-    // Clear user's cart
-    const { error: cartError } = await supabase
-      .from('cart_items')
-      .delete()
-      .eq('user_id', userId);
-    
-    if (cartError) {
-      console.warn('⚠️ Warning clearing cart items:', cartError.message);
-    }
-
-    // Reset cart total
-    const { error: cartResetError } = await supabase
-      .from('carts')
-      .update({
-        total_amount: 0.00,
-        updated_at: new Date().toISOString()
-      })
-      .eq('user_id', userId);
-    
-    if (cartResetError) {
-      console.warn('⚠️ Warning resetting cart total:', cartResetError.message);
-    }
-
-    console.log(`✅ Cleared ${orderIds.length} orders for user ${userId}`);
-    
     res.json({
       success: true,
-      message: `Cleared ${orderIds.length} orders successfully`,
-      ordersCleared: orderIds.length,
-      timestamp: new Date().toISOString()
+      user
     });
-
   } catch (error) {
-    console.error('❌ Error in clear user orders:', error);
+    console.error('Error fetching user:', error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error',
+      message: 'Error fetching user',
+      error: error.message
+    });
+  }
+});
+
+// Update user
+router.put('/users/:userId', auth, isAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { email, fullName, role } = req.body;
+    
+    const updateData = {
+      updated_at: new Date().toISOString()
+    };
+    
+    if (email) updateData.email = email.toLowerCase().trim();
+    if (fullName) updateData.full_name = fullName;
+    if (role) updateData.role = role;
+
+    const { data: user, error } = await supabase
+      .from('users')
+      .update(updateData)
+      .eq('id', userId)
+      .select()
+      .single();
+    
+    if (error) throw error;
+
+    delete user.password_hash;
+
+    res.json({
+      success: true,
+      message: 'User updated successfully',
+      user
+    });
+  } catch (error) {
+    console.error('Error updating user:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating user',
+      error: error.message
+    });
+  }
+});
+
+// Delete user
+router.delete('/users/:userId', auth, isAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Prevent admin from deleting themselves
+    if (userId === req.user.id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot delete your own account'
+      });
+    }
+
+    // Delete user's related data first
+    // Delete orders, products, cart, etc.
+    await supabase.from('cart_items').delete().eq('user_id', userId);
+    await supabase.from('carts').delete().eq('user_id', userId);
+    await supabase.from('products').delete().eq('seller_id', userId);
+    await supabase.from('shop_info').delete().eq('user_id', userId);
+    await supabase.from('likes').delete().eq('user_id', userId);
+    
+    // Delete user
+    const { error } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', userId);
+    
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      message: 'User deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting user',
+      error: error.message
+    });
+  }
+});
+
+// ==================== ORDER MANAGEMENT ====================
+
+// Get all orders
+router.get('/orders', auth, isAdmin, async (req, res) => {
+  try {
+    const { data: orders, error } = await supabase
+      .from('orders')
+      .select(`
+        *,
+        buyer:users!orders_buyer_id_fkey(id, email, full_name),
+        seller:users!orders_seller_id_fkey(id, email, full_name),
+        items:order_items(*)
+      `)
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      orders,
+      total: orders.length
+    });
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching orders',
+      error: error.message
+    });
+  }
+});
+
+// Get single order details
+router.get('/orders/:orderId', auth, isAdmin, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    
+    const { data: order, error } = await supabase
+      .from('orders')
+      .select(`
+        *,
+        buyer:users!orders_buyer_id_fkey(id, email, full_name),
+        seller:users!orders_seller_id_fkey(id, email, full_name),
+        items:order_items(*),
+        history:order_status_history(*)
+      `)
+      .eq('id', orderId)
+      .single();
+    
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      order
+    });
+  } catch (error) {
+    console.error('Error fetching order:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching order',
+      error: error.message
+    });
+  }
+});
+
+// Update order status
+router.put('/orders/:orderId/status', auth, isAdmin, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { status } = req.body;
+    
+    const validStatuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid status'
+      });
+    }
+
+    // Update order status
+    const { data: order, error: updateError } = await supabase
+      .from('orders')
+      .update({
+        status,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', orderId)
+      .select()
+      .single();
+    
+    if (updateError) throw updateError;
+
+    // Add to status history
+    await supabase
+      .from('order_status_history')
+      .insert({
+        order_id: orderId,
+        status,
+        changed_by: req.user.id,
+        created_at: new Date().toISOString()
+      });
+
+    res.json({
+      success: true,
+      message: 'Order status updated',
+      order
+    });
+  } catch (error) {
+    console.error('Error updating order:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating order',
+      error: error.message
+    });
+  }
+});
+
+// Delete order
+router.delete('/orders/:orderId', auth, isAdmin, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    
+    // Delete related data
+    await supabase.from('order_status_history').delete().eq('order_id', orderId);
+    await supabase.from('order_items').delete().eq('order_id', orderId);
+    
+    // Delete order
+    const { error } = await supabase
+      .from('orders')
+      .delete()
+      .eq('id', orderId);
+    
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      message: 'Order deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting order:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting order',
+      error: error.message
+    });
+  }
+});
+
+// ==================== PRODUCT MANAGEMENT ====================
+
+// Get all products
+router.get('/products', auth, isAdmin, async (req, res) => {
+  try {
+    const { data: products, error } = await supabase
+      .from('products')
+      .select(`
+        *,
+        seller:users!products_seller_id_fkey(id, email, full_name, shop_name)
+      `)
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      products,
+      total: products.length
+    });
+  } catch (error) {
+    console.error('Error fetching products:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching products',
+      error: error.message
+    });
+  }
+});
+
+// Get single product details
+router.get('/products/:productId', auth, isAdmin, async (req, res) => {
+  try {
+    const { productId } = req.params;
+    
+    const { data: product, error } = await supabase
+      .from('products')
+      .select(`
+        *,
+        seller:users!products_seller_id_fkey(id, email, full_name, shop_name)
+      `)
+      .eq('id', productId)
+      .single();
+    
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      product
+    });
+  } catch (error) {
+    console.error('Error fetching product:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching product',
+      error: error.message
+    });
+  }
+});
+
+// Update product
+router.put('/products/:productId', auth, isAdmin, async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const { name, description, price, stock_quantity, category } = req.body;
+    
+    const updateData = {
+      updated_at: new Date().toISOString()
+    };
+    
+    if (name) updateData.name = name;
+    if (description) updateData.description = description;
+    if (price !== undefined) updateData.price = price;
+    if (stock_quantity !== undefined) updateData.stock_quantity = stock_quantity;
+    if (category) updateData.category = category;
+
+    const { data: product, error } = await supabase
+      .from('products')
+      .update(updateData)
+      .eq('id', productId)
+      .select()
+      .single();
+    
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      message: 'Product updated successfully',
+      product
+    });
+  } catch (error) {
+    console.error('Error updating product:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating product',
+      error: error.message
+    });
+  }
+});
+
+// Delete product
+router.delete('/products/:productId', auth, isAdmin, async (req, res) => {
+  try {
+    const { productId } = req.params;
+    
+    // Delete related data
+    await supabase.from('cart_items').delete().eq('product_id', productId);
+    await supabase.from('order_items').delete().eq('product_id', productId);
+    await supabase.from('likes').delete().eq('product_id', productId);
+    
+    // Delete product
+    const { error } = await supabase
+      .from('products')
+      .delete()
+      .eq('id', productId);
+    
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      message: 'Product deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting product:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting product',
+      error: error.message
+    });
+  }
+});
+
+// ==================== STATISTICS ====================
+
+// Get admin dashboard statistics
+router.get('/stats', auth, isAdmin, async (req, res) => {
+  try {
+    // Get user counts
+    const { data: users } = await supabase.from('users').select('role');
+    const totalUsers = users?.length || 0;
+    const totalBuyers = users?.filter(u => u.role === 'buyer').length || 0;
+    const totalSellers = users?.filter(u => u.role === 'buyer').length || 0;
+
+    // Get order counts
+    const { data: orders } = await supabase.from('orders').select('total_amount, status');
+    const totalOrders = orders?.length || 0;
+    const totalRevenue = orders?.reduce((sum, order) => sum + parseFloat(order.total_amount || 0), 0) || 0;
+
+    // Get product count
+    const { data: products } = await supabase.from('products').select('id');
+    const totalProducts = products?.length || 0;
+
+    res.json({
+      success: true,
+      stats: {
+        totalUsers,
+        totalBuyers,
+        totalSellers,
+        totalOrders,
+        totalProducts,
+        totalRevenue
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching stats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching statistics',
       error: error.message
     });
   }
