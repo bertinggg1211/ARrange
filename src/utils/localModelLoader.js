@@ -8,6 +8,8 @@ export const getLocalModelPath = (modelType = 'TEST1') => {
     switch (modelType) {
       case 'TEST1':
         return 'file:///android_asset/TEST1.glb';
+      case 'TEST4':
+        return 'file:///android_asset/TEST4.glb';
       default:
         return 'file:///android_asset/TEST1.glb';
     }
@@ -24,10 +26,16 @@ export const getLocalModelInfo = (modelType = 'TEST1') => {
       description: 'Local 3D model from Android assets',
       size: 'Unknown',
       format: 'GLB'
+    },
+    'TEST4': {
+      name: 'TEST4 Model',
+      description: 'Local 3D model from Android assets',
+      size: 'Unknown',
+      format: 'GLB'
     }
   };
   
-  return models[modelType] || models['TEST1'];
+  return models[modelType] || models.TEST1;
 };
 
 // Get all available local models
@@ -36,6 +44,13 @@ export const getAvailableLocalModels = () => {
     {
       id: 'TEST1',
       name: 'TEST1 Model',
+      description: 'Local 3D model from Android assets',
+      size: 'Unknown',
+      format: 'GLB'
+    },
+    {
+      id: 'TEST4',
+      name: 'TEST4 Model',
       description: 'Local 3D model from Android assets',
       size: 'Unknown',
       format: 'GLB'

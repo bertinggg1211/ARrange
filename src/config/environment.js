@@ -33,9 +33,9 @@ const ENVIRONMENT_CONFIGS = {
   
   [ENVIRONMENTS.PRODUCTION]: {
     // UPDATE THIS WITH YOUR PRODUCTION URL
-    API_BASE_URL: 'https://arrange-wf18.onrender.com',
-    SOCKET_URL: 'https://arrange-wf18.onrender.com',
-    IMAGE_BASE_URL: 'https://arrange-wf18.onrender.com',
+    API_BASE_URL: 'https://arrange-4dg0.onrender.com',
+    SOCKET_URL: 'https://arrange-4dg0.onrender.com',
+    IMAGE_BASE_URL: 'https://arrange-4dg0.onrender.com',
     DEBUG_MODE: false,
     APP_NAME: 'ARrange',
   }
@@ -47,7 +47,7 @@ const ENVIRONMENT_CONFIGS = {
 // - ENVIRONMENTS.PRODUCTION (for APK builds)
 
 // 👇 CHANGE THIS LINE TO SWITCH:
-const CURRENT_ENVIRONMENT = ENVIRONMENTS.DEVELOPMENT;;
+const CURRENT_ENVIRONMENT = ENVIRONMENTS.PRODUCTION;;
 
 // Get current configuration
 const getCurrentConfig = () => {

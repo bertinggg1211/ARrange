@@ -8,7 +8,7 @@ const SERVER_CONFIGS = {
   LOCAL_EMULATOR: 'http://10.0.2.2:5000',
   
   // Production/Demo servers (update these with your actual URLs)
-  PRODUCTION: 'https://arrange-wf18.onrender.com',
+  PRODUCTION: 'https://arrange-4dg0.onrender.com',
   
   // Backup servers (you can add more)
   BACKUP_1: 'https://your-backup-server.herokuapp.com',
@@ -17,7 +17,7 @@ const SERVER_CONFIGS = {
 
 // Server priority order for auto-detection (LOCAL ONLY)
 const SERVER_PRIORITY = [
-  SERVER_CONFIGS.LOCAL_DEV,        // 🔧 LOCAL DEVELOPMENT MODE (primary)
+  SERVER_CONFIGS.PRODUCTION,        // 🔧 LOCAL DEVELOPMENT MODE (primary)
   SERVER_CONFIGS.LOCAL_EMULATOR,   // For Android emulator (fallback)
   // Removed external servers for local development
 ];

@@ -64,6 +64,8 @@ export default function UploadItem({ route, navigation }) {
   const [category, setCategory] = useState(initialProduct.category || '');
   const [stock, setStock] = useState(initialProduct.stock?.toString() || '1');
   const [dimensions, setDimensions] = useState(initialProduct.dimensions || '');
+  const [height, setHeight] = useState(initialProduct.height || '');
+  const [width, setWidth] = useState(initialProduct.width || '');
   const [weight, setWeight] = useState(initialProduct.weight || '');
   const [material, setMaterial] = useState(initialProduct.material || '');
   const [warranty, setWarranty] = useState(initialProduct.warranty || '');
@@ -605,7 +607,8 @@ export default function UploadItem({ route, navigation }) {
             // Step 3: Product Details fields (excluding AR model)
             setBrand('LuxeLights');
             setModel('CL-2024-PRO');
-            setDimensions('60cm x 80cm');
+            setHeight('60');
+            setWidth('80');
             setWeight('12kg');
             setMaterial('Stainless Steel, K9 Crystal Glass');
             setWarranty('2 years');
@@ -639,7 +642,8 @@ export default function UploadItem({ route, navigation }) {
     setDescription('');
     setBrand('');
     setModel('');
-    setDimensions('');
+    setHeight('');
+    setWidth('');
     setWeight('');
     setMaterial('');
     setWarranty('');
@@ -772,7 +776,7 @@ export default function UploadItem({ route, navigation }) {
 
       const productData = {
         name, price, description, category, stock: parseInt(stock),
-        dimensions, weight, material, warranty, bulbType, numberOfBulbs,
+        dimensions, height, width, weight, material, warranty, bulbType, numberOfBulbs,
         voltage, ledType, lumens, isDimmable, brand, model, colorOptions,
         installationType, roomType, 
         images: processedImages,
@@ -908,6 +912,8 @@ export default function UploadItem({ route, navigation }) {
         description: resp.product?.description || description,
         stock: resp.product?.stock || parseInt(stock),
         dimensions: resp.product?.dimensions || dimensions,
+        height: resp.product?.height || height,
+        width: resp.product?.width || width,
         weight: resp.product?.weight || weight,
         material: resp.product?.material || material,
         warranty: resp.product?.warranty || warranty,
@@ -1705,12 +1711,24 @@ export default function UploadItem({ route, navigation }) {
               <Text style={styles.sectionTitle}>Physical Specifications</Text>
               
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Dimensions</Text>
+                <Text style={styles.inputLabel}>Height (cm)</Text>
                 <TextInput
                   style={styles.textInput}
-                  value={dimensions}
-                  onChangeText={setDimensions}
-                  placeholder="e.g., 30cm x 20cm x 15cm"
+                  value={height}
+                  onChangeText={setHeight}
+                  placeholder="e.g., 30"
+                  keyboardType="numeric"
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Width (cm)</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={width}
+                  onChangeText={setWidth}
+                  placeholder="e.g., 20"
+                  keyboardType="numeric"
                 />
               </View>
 

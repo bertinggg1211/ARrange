@@ -78,6 +78,8 @@ export const createProduct = async (payload = {}) => {
       hasSpecifications: !!payload.specifications,
       specificationsLength: payload.specifications?.length,
       dimensions: payload.dimensions,
+      height: payload.height,
+      width: payload.width,
       weight: payload.weight,
       material: payload.material,
       warranty: payload.warranty,
@@ -98,7 +100,7 @@ export const createProduct = async (payload = {}) => {
     const form = new FormData();
 
     const textFields = [
-      'name','price','description','category','stock','dimensions','weight','material','warranty',
+      'name','price','description','category','stock','dimensions','height','width','weight','material','warranty',
       'bulbType','numberOfBulbs','voltage','ledType','lumens','isDimmable','brand','model','installationType','roomType','status',
       'hasAR','arModelSource','arModelType','arModelUrl','deliveryCharge','installationCost','freeDeliveryThreshold','installationIncluded'
     ];
@@ -332,6 +334,16 @@ export const getProductById = async (productId) => {
     
     const data = await res.json();
     if (!res.ok) throw new Error(data?.message || 'Failed to fetch product');
+    
+    console.log('📦 getProductById FULL response:', {
+      productId: data.product?.id,
+      name: data.product?.name,
+      height: data.product?.height,
+      width: data.product?.width,
+      dimensions: data.product?.dimensions,
+      fullProduct: data.product
+    });
+    
     return data;
   } catch (error) {
     console.error('Error fetching product:', error);

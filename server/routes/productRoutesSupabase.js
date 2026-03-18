@@ -208,6 +208,8 @@ router.get('/', async (req, res) => {
           updatedAt: product.updated_at,
           // FIXED: Include ALL detailed product fields for proper editing
           dimensions: product.dimensions,
+          height: product.height_cm,
+          width: product.width_cm,
           weight: product.weight,
           material: product.material,
           warranty: product.warranty,
@@ -294,6 +296,12 @@ router.get('/', async (req, res) => {
           hasAR: product.has_ar || false,
           arModel: product.ar_model,
           arModelSource: product.ar_model_source,
+          // Include dimensions, height, width for ViewDetails
+          dimensions: product.dimensions,
+          height: product.height_cm,
+          width: product.width_cm,
+          weight: product.weight,
+          material: product.material,
           // Rating data
           rating: productRatings[product.id] || 0,
           reviewCount: productReviewCounts[product.id] || 0,
@@ -683,14 +691,16 @@ router.post('/', auth, imageUpload.array('images', 5), async (req, res) => {
     }
     
     const sellerId = req.user.id;
-    const { name, price, description, category, stock, dimensions, weight, material, warranty, bulbType, numberOfBulbs, voltage, ledType, lumens, isDimmable, brand, model, installationType, roomType, deliveryCharge, installationCost, freeDeliveryThreshold, installationIncluded } = req.body;
+    const { name, price, description, category, stock, dimensions, weight, material, warranty, bulbType, numberOfBulbs, voltage, ledType, lumens, isDimmable, brand, model, installationType, roomType, deliveryCharge, installationCost, freeDeliveryThreshold, installationIncluded, height, width } = req.body;
     
     console.log('📝 Creating product with lumens data:', {
       lumens: lumens,
       lumensType: typeof lumens,
       numberOfBulbs: numberOfBulbs,
       numberOfBulbsType: typeof numberOfBulbs,
-      brand: brand
+      brand: brand,
+      height: height,
+      width: width
     });
     
     // Handle array fields from FormData
@@ -859,7 +869,9 @@ router.post('/', auth, imageUpload.array('images', 5), async (req, res) => {
       delivery_charge: deliveryCharge ? parseFloat(deliveryCharge) : 0.00,
       installation_cost: installationCost ? parseFloat(installationCost) : 0.00,
       free_delivery_threshold: freeDeliveryThreshold ? parseFloat(freeDeliveryThreshold) : null,
-      installation_included: installationIncluded === 'true' || installationIncluded === true
+      installation_included: installationIncluded === 'true' || installationIncluded === true,
+      height_cm: height !== undefined && height !== null && height !== '' ? parseFloat(height) : null,
+      width_cm: width !== undefined && width !== null && width !== '' ? parseFloat(width) : null
     };
     
     console.log('💾 Product data to be saved:', {
@@ -873,6 +885,8 @@ router.post('/', auth, imageUpload.array('images', 5), async (req, res) => {
       hasSpecifications: !!productData.specifications,
       specificationsLength: productData.specifications?.length,
       dimensions: productData.dimensions,
+      height_cm: productData.height_cm,
+      width_cm: productData.width_cm,
       weight: productData.weight,
       material: productData.material,
       warranty: productData.warranty,
@@ -926,6 +940,8 @@ router.post('/', auth, imageUpload.array('images', 5), async (req, res) => {
         arModelSource: newProduct.ar_model_source,
         arModelType: newProduct.ar_model_type,
         arThumbnailUrl: newProduct.ar_thumbnail_url,
+        height: newProduct.height_cm,
+        width: newProduct.width_cm,
         createdAt: newProduct.created_at
       }
     });
@@ -1018,6 +1034,8 @@ router.put('/:productId', auth, imageUpload.array('newImages', 5), async (req, r
       category: req.body.category || existingProduct.category,
       stock_quantity: req.body.stock ? parseInt(req.body.stock) : existingProduct.stock_quantity,
       dimensions: req.body.dimensions || existingProduct.dimensions,
+      height_cm: req.body.height !== undefined && req.body.height !== null && req.body.height !== '' ? parseFloat(req.body.height) : existingProduct.height_cm,
+      width_cm: req.body.width !== undefined && req.body.width !== null && req.body.width !== '' ? parseFloat(req.body.width) : existingProduct.width_cm,
       weight: req.body.weight || existingProduct.weight,
       material: req.body.material || existingProduct.material,
       warranty: req.body.warranty || existingProduct.warranty,
@@ -1291,6 +1309,8 @@ router.get('/:productId', async (req, res) => {
         images: product.images || [],
         stock: product.stock_quantity, // FIXED: Use correct field name
         dimensions: product.dimensions,
+        height: product.height_cm,
+        width: product.width_cm,
         weight: product.weight,
         material: product.material,
         warranty: product.warranty,

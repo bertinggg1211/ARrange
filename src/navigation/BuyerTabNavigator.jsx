@@ -16,6 +16,7 @@ import Chat from "../screens/buyer/Chat";
 import Checkout from "../screens/buyer/Checkout";
 import ProductDetail from "../screens/buyer/ProductDetail";
 import ViewProducts from "../screens/buyer/ViewProducts";
+import ViewDetails from "../screens/buyer/ViewDetails";
 import ShopViewer from "../screens/buyer/ShopViewer";
 import ShopReviews from "../screens/buyer/ShopReviews";
 import ARViewer from "../AR_KIRI/ARViewer";
@@ -172,6 +173,7 @@ export default function BuyerNavigator() {
       <Stack.Screen name="CustomCamera" component={CustomCamera} options={{ headerShown: false }} />
       <Stack.Screen name="Checkout" component={Checkout} options={{ headerShown: false }} />
       <Stack.Screen name="ProductDetail" component={ProductDetail} options={{ headerShown: false }} />
+      <Stack.Screen name="ViewDetails" component={ViewDetails} options={{ headerShown: false }} />
     </Stack.Navigator>
   );
 }

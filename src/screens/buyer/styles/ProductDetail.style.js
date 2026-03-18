@@ -7,6 +7,66 @@ const { Colors, Theme } = ThemeColors;
 const { width } = Dimensions.get("window");
 
 export default StyleSheet.create({
+  // New scrollable modal styles
+  specsModalContainer: {
+    flex: 1,
+  },
+  specsModalWrapper: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  specsModalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  specsModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '90%',
+    minHeight: '50%',
+  },
+  specsModalHandle: {
+    width: 36,
+    height: 4,
+    backgroundColor: '#CBD5E1',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  specsModalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  specsModalTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  specsModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1E293B',
+    marginLeft: 12,
+  },
+  specsModalCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  specsModalScroll: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
@@ -748,7 +808,7 @@ export default StyleSheet.create({
   noReviewsContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 40,
+    paddingVertical: 50,
   },
   noReviewsTitle: {
     fontSize: 16,
@@ -1344,28 +1404,47 @@ export default StyleSheet.create({
   enhancedModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  enhancedModalOverlayBottom: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+    paddingTop: 40,
+    paddingBottom: 40,
   },
   enhancedModalBackdrop: {
     flex: 1,
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 450,
+    alignSelf: 'center',
   },
   enhancedModalContent: {
-    height: '95%',
+    width: '95%',
+    maxWidth: 450,
+    maxHeight: '85%',
+    alignSelf: 'center',
   },
   enhancedModalContainer: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    height: '100%',
+    width: '100%',
+    minHeight: '70%',
+    maxHeight: '85%',
+    borderRadius: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -8 },
+    shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.25,
     shadowRadius: 16,
-    elevation: 16,
+    elevation: 20,
+    alignSelf: 'center',
   },
   enhancedModalHeader: {
-    paddingTop: 16,
+    paddingTop: 50,
     paddingHorizontal: 20,
     paddingBottom: 20,
     borderBottomWidth: 1,

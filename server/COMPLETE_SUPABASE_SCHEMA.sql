@@ -54,6 +54,8 @@ CREATE TABLE products (
     
     -- Product dimensions and details
     dimensions VARCHAR(100), -- e.g., "20x15x10 cm"
+    height_cm DECIMAL(8,2), -- Height in centimeters
+    width_cm DECIMAL(8,2), -- Width in centimeters
     weight VARCHAR(50), -- e.g., "2.5 kg"
     material VARCHAR(100), -- e.g., "Metal, Glass"
     warranty VARCHAR(100), -- e.g., "2 years"

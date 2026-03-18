@@ -84,6 +84,8 @@ exports.createProduct = async (req, res) => {
       stock: toNumber(body.stock, 0),
       status: body.status || 'active',
       dimensions: body.dimensions || '',
+      height: toNumber(body.height, null),
+      width: toNumber(body.width, null),
       weight: body.weight || '',
       material: body.material || '',
       warranty: body.warranty || '',
@@ -134,6 +136,9 @@ exports.createProduct = async (req, res) => {
       ar_scan_data: product.arScanData || null,
       ar_model_url: product.arModelUrl || arScanData?.glbUrl || arScanData?.cloudinaryUrl || arScanData?.modelUrl || null,
       stock_quantity: product.stock || 0,
+      dimensions: product.dimensions, // Keep for backward compatibility
+      height_cm: product.height,
+      width_cm: product.width,
       is_active: product.status === 'active',
       seller_id: product.sellerId,
       created_at: new Date().toISOString(),

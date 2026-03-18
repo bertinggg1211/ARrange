@@ -739,7 +739,7 @@ export default function Orders({ navigation }) {
   }, {});
   
   // Add 'All' count
-  orderCounts['All'] = orders.length;
+  orderCounts.All = orders.length;
 
   // Get pending orders count for badge
   const pendingCount = orders.filter(order => order.status === 'Pending').length;

@@ -5,6 +5,9 @@ import { API_BASE_URL } from '../config/environment';
 
 export const BASE_URL = API_BASE_URL;
 
+// Fallback URL (same as production - no secondary fallback needed)
+const BASE_URL_FALLBACK = null;
+
 // Dynamic BASE_URL getter (simplified to avoid timeout issues)
 export const getDynamicBaseUrl = async () => {
   // Always return the working BASE_URL to avoid complex server detection

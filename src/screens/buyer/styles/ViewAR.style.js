@@ -394,4 +394,120 @@ export default StyleSheet.create({
     flex: 1,
     backgroundColor: 'transparent',
   },
+  
+  // Orientation Indicator Styles
+  orientationIndicator: {
+    minWidth: 60,
+    alignItems: 'center',
+  },
+  axisContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 2,
+  },
+  axisLine: {
+    width: 20,
+    height: 2,
+    marginRight: 8,
+    borderRadius: 1,
+  },
+  axisLabel: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    minWidth: 12,
+    textAlign: 'center',
+  },
+
+  // Measurement Overlay Styles
+  measurementOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 15,
+    pointerEvents: 'none',
+  },
+  measurementLine: {
+    position: 'absolute',
+    backgroundColor: '#FF8B47',
+  },
+  horizontalLine: {
+    left: 40,
+    right: 40,
+    height: 2,
+    top: '50%',
+  },
+  verticalLine: {
+    top: 100,
+    bottom: 100,
+    width: 2,
+    left: '50%',
+  },
+  measurementLabel: {
+    position: 'absolute',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  measurementLabelText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  widthLabel: {
+    left: '50%',
+    top: '50%',
+    transform: [{ translateX: -180 }, { translateY: -15 }],
+  },
+  heightLabel: {
+    left: '50%',
+    top: '50%',
+    transform: [{ translateX: -60 }, { translateY: -260 }],
+  },
+  cornerIndicator: {
+    position: 'absolute',
+    width: 20,
+    height: 20,
+    borderColor: '#FF8B47',
+  },
+  cornerTopLeft: {
+    top: 80,
+    left: 20,
+    borderTopWidth: 3,
+    borderLeftWidth: 3,
+  },
+  cornerTopRight: {
+    top: 80,
+    right: 20,
+    borderTopWidth: 3,
+    borderRightWidth: 3,
+  },
+  cornerBottomLeft: {
+    bottom: 80,
+    left: 20,
+    borderBottomWidth: 3,
+    borderLeftWidth: 3,
+  },
+  cornerBottomRight: {
+    bottom: 80,
+    right: 20,
+    borderBottomWidth: 3,
+    borderRightWidth: 3,
+  },
+  measureToggleButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FF8B47',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
 });

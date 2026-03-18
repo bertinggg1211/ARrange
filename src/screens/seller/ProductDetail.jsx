@@ -255,8 +255,12 @@ export default function ProductDetail({ route, navigation }) {
                     <Text style={styles.infoValue}>{product.category}</Text>
                   </View>
                   <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Dimensions</Text>
-                    <Text style={styles.infoValue}>{product.dimensions}</Text>
+                    <Text style={styles.infoLabel}>Height</Text>
+                    <Text style={styles.infoValue}>{product.height ? `${product.height} cm` : 'Not specified'}</Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Width</Text>
+                    <Text style={styles.infoValue}>{product.width ? `${product.width} cm` : 'Not specified'}</Text>
                   </View>
                   <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>Weight</Text>
