@@ -1073,26 +1073,40 @@ export default function ProductDetail({ route, navigation }) {
               hasAR: product.hasAR,
               arModelSource: product.arModelSource,
               arModelType: product.arModelType,
+              arModel: product.arModel,           // Supabase URL
               arModelUrl: product.arModelUrl,
               arScanData: product.arScanData
             });
             
             // Check if product has AR and determine the source
             if (product.hasAR) {
-              if (product.arModelSource === 'local') {
-                // Use local TEST4.glb model
-                console.log('🏠 Using local TEST4.glb model for AR');
-                navigation.navigate('ViewAR', { 
-                  product: {
-                    ...product,
-                    modelUrl: product.arModelUrl || 'TEST4' // Pass TEST4 as model type
-                  }
-                });
-              } else {
-                // Use KIRI Engine model
-                console.log('🎯 Using KIRI Engine model for AR');
-                navigation.navigate('ViewAR', { product });
+              // Get model URL from Supabase (arModel field contains Supabase Storage URL)
+              const modelUrl = product.arModel || 
+                              product.arScanData?.glbUrl || 
+                              product.arScanData?.modelUrl;
+              
+              console.log('🎯 ARViewer - Supabase Model URL:', modelUrl);
+              
+              if (!modelUrl) {
+                Alert.alert('Error', '3D model URL not found');
+                return;
               }
+              
+              // Navigate to ARViewer with camera + 3D model overlay
+              navigation.navigate('ARViewer', {
+                productId: product.id,
+                modelUrl: modelUrl,
+                productName: product.name,
+                arModelUrl: modelUrl,
+                productHeight: product.height_cm,
+                productWidth: product.width_cm,
+                scanData: product.arScanData || {
+                  glbUrl: modelUrl,
+                  modelUrl: modelUrl,
+                  source: product.arModelSource || 'tripo',
+                  storage: 'supabase'
+                }
+              });
             } else {
               console.log('❌ No AR Model - Product data:', {
                 hasAR: product.hasAR,

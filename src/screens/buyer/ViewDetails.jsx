@@ -167,8 +167,8 @@ export default function ViewDetails({ route, navigation }) {
                 <View style={styles.enhancedSpecContent}>
                   <Text style={styles.enhancedSpecLabel}>Dimensions</Text>
                   <Text style={styles.enhancedSpecValue}>
-                    {(product?.height || product?.width) 
-                      ? `${product.height ? product.height + ' cm' : '-'} x ${product.width ? product.width + ' cm' : '-'}` 
+                    {(product?.height_cm || product?.width_cm) 
+                      ? `${product.height_cm ? product.height_cm + ' cm' : '-'} x ${product.width_cm ? product.width_cm + ' cm' : '-'}` 
                       : (product?.dimensions || "Not specified")}
                   </Text>
                 </View>

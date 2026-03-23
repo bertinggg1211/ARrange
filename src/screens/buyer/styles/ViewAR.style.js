@@ -375,6 +375,139 @@ export default StyleSheet.create({
     marginLeft: 6,
   },
   
+  // Distance Indicator (for distance-based AR)
+  distanceIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginTop: 8,
+    alignSelf: 'center',
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  distanceText: {
+    color: Colors.background, // White text
+    fontSize: 12,
+    fontWeight: '700',
+    marginLeft: 6,
+  },
+  
+  // Distance Slider (Manual Input for Android)
+  distanceSliderContainer: {
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderRadius: 15,
+    marginTop: 8,
+    alignSelf: 'center',
+    width: '90%',
+    maxWidth: 350,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  distanceSliderHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  distanceSliderTitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  
+  // Custom slider without native dependency
+  customSliderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  sliderButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FF8B47',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sliderButtonText: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  sliderTrackContainer: {
+    flex: 1,
+    height: 40,
+    justifyContent: 'center',
+    marginHorizontal: 15,
+    position: 'relative',
+  },
+  sliderTrack: {
+    height: 8,
+    backgroundColor: '#333333',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  sliderFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  thresholdMarker: {
+    position: 'absolute',
+    width: 3,
+    height: 20,
+    backgroundColor: '#FF8B47',
+    top: 10,
+    marginLeft: -1.5,
+  },
+  
+  distanceSlider: {
+    width: '100%',
+    height: 40,
+  },
+  distanceSliderLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: -5,
+  },
+  distanceSliderMinMax: {
+    color: '#999999',
+    fontSize: 11,
+  },
+  distanceSliderValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  thresholdIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+  },
+  thresholdLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#FF8B47',
+    maxWidth: 80,
+  },
+  thresholdText: {
+    color: '#FF8B47',
+    fontSize: 11,
+    fontWeight: '600',
+    marginHorizontal: 10,
+  },
+  
   // Model Controls (zoom, rotate buttons)
   modelControls: {
     flexDirection: 'row',
@@ -393,6 +526,93 @@ export default StyleSheet.create({
   modelWebView: {
     flex: 1,
     backgroundColor: 'transparent',
+  },
+  
+  // AR Container (ViroReact)
+  arContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  arNavigator: {
+    flex: 1,
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    zIndex: 50,
+  },
+  loadingText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    marginTop: 12,
+  },
+  instructionsOverlay: {
+    position: 'absolute',
+    bottom: 100,
+    left: 20,
+    right: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    padding: 20,
+    borderRadius: 15,
+    alignItems: 'center',
+    zIndex: 40,
+  },
+  instructionTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  instructionText: {
+    color: '#CCCCCC',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  
+  // Bottom Info Panel
+  bottomPanel: {
+    position: 'absolute',
+    bottom: 30,
+    left: 20,
+    right: 20,
+    padding: 15,
+    borderRadius: 15,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    zIndex: 100,
+  },
+  distanceInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  distanceText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  distanceStatus: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    marginLeft: 8,
+  },
+  statusInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statusText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    marginLeft: 5,
+  },
+  infoButton: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   
   // Orientation Indicator Styles

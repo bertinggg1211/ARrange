@@ -8,12 +8,14 @@
     <!-- Keep legacy for backward compatibility on Android 12 and below -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
+  
   <!-- Camera features for react-native-vision-camera -->
   <uses-feature android:name="android.hardware.camera" android:required="true" />
   <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
   <uses-feature android:name="android.hardware.camera.flash" android:required="false" />
   <uses-feature android:name="android.hardware.camera.front" android:required="false" />
-    <application
+  
+  <application
       android:name=".MainApplication"
       android:label="@string/app_name"
       android:icon="@mipmap/ic_launcher"
@@ -47,5 +49,5 @@
             <data android:scheme="https" android:host="uqabqigsgrmtylcgheqg.supabase.co" android:pathPrefix="/auth/v1/verify" />
         </intent-filter>
       </activity>
-    </application>
+  </application>
 </manifest>
